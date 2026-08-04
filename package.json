@@ -1,0 +1,12 @@
+{
+  "name": "littlesmarties",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "docker-compose -f docker-compose.dev.yml up",
+    "build": "docker-compose -f docker-compose.prod.yml build",
+    "deploy": "bash infra/scripts/deploy.sh"
+  }
+}

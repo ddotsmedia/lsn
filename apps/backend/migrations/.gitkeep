@@ -1,0 +1,3 @@
+# Additive SQL migrations only (CREATE TABLE IF NOT EXISTS / ADD COLUMN IF NOT EXISTS).
+# Never DROP or ALTER existing columns. Files are applied in filename order:
+#   001_users.sql, 002_home.sql, ...
