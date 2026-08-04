@@ -19,13 +19,14 @@ export interface HeaderProps {
 }
 
 /**
- * Only routes that exist under `app/` are linked here — see the note in the
- * task hand-off about "Age Group" and "Parents", which have no page yet.
+ * Only routes that exist under `app/` are linked here — "Parents" from the
+ * original spec still has no page and so is still omitted.
  */
 const NAV_LINKS: readonly NavLink[] = [
   { label: 'Home', href: '/' },
   { label: 'Nursery', href: '/nursery' },
   { label: 'Facilities', href: '/facilities' },
+  { label: 'Age Groups', href: '/age-groups' },
   { label: 'Gallery', href: '/gallery' },
   { label: 'Events', href: '/events' },
   { label: 'Contact Us', href: '/contact' },
