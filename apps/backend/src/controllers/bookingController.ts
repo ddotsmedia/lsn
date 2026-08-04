@@ -46,10 +46,16 @@ export async function createRegistration(
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: 'Validation failed', details: error.issues });
-    } else {
-      console.error('createRegistration failed', error);
-      res.status(500).json({ error: 'Failed to create registration' });
+      return;
     }
+    // age_group_id must reference an existing age_groups row — that is bad
+    // client input, not a server fault.
+    if (typeof error === 'object' && error !== null && (error as { code?: string }).code === '23503') {
+      res.status(400).json({ error: 'Unknown age group' });
+      return;
+    }
+    console.error('createRegistration failed', error);
+    res.status(500).json({ error: 'Failed to create registration' });
   }
 }
 
@@ -94,14 +100,17 @@ export async function createBooking(db: Pool, req: AuthRequest, res: Response): 
     const data = BookingSchema.parse(req.body);
 
     // Conditional insert so a slot cannot be claimed twice between the
-    // availability check and the write.
+    // availability check and the write. $4 is cast to `timestamp` (not
+    // `timestamptz`) to match the column type and the expression in
+    // idx_tour_bookings_slot_unique — a timestamptz cast would resolve the
+    // date in the server's timezone and could disagree with the index.
     const result = await db.query(
       `INSERT INTO tour_bookings (visitor_name, email, phone, preferred_date, time_slot, status)
-       SELECT $1, $2, $3, $4, $5, $6
+       SELECT $1::varchar, $2::varchar, $3::varchar, $4::timestamp, $5::varchar, $6::varchar
        WHERE NOT EXISTS (
          SELECT 1 FROM tour_bookings
-         WHERE DATE(preferred_date) = DATE($4::timestamptz)
-           AND time_slot = $5
+         WHERE DATE(preferred_date) = DATE($4::timestamp)
+           AND time_slot = $5::varchar
            AND status != 'cancelled'
        )
        RETURNING *`,
@@ -119,10 +128,16 @@ export async function createBooking(db: Pool, req: AuthRequest, res: Response): 
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: 'Validation failed', details: error.issues });
-    } else {
-      console.error('createBooking failed', error);
-      res.status(500).json({ error: 'Failed to create booking' });
+      return;
     }
+    // Two requests can pass the NOT EXISTS check concurrently; the unique index
+    // is what actually settles it. Report that as a conflict, not a server error.
+    if (typeof error === 'object' && error !== null && (error as { code?: string }).code === '23505') {
+      res.status(409).json({ error: 'Time slot already booked' });
+      return;
+    }
+    console.error('createBooking failed', error);
+    res.status(500).json({ error: 'Failed to create booking' });
   }
 }
 
