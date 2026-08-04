@@ -47,9 +47,19 @@ export function Modal({
     setMounted(true);
   }, []);
 
+  // Consumers usually pass an inline arrow for `onClose`, which changes identity
+  // on every render. Reading it through a ref keeps `handleClose` stable so the
+  // effect below runs only when `isOpen` flips — otherwise a parent re-render
+  // while the modal is open would re-run it and steal focus back to the close
+  // button mid-interaction.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   const handleClose = useCallback(() => {
-    onClose();
-  }, [onClose]);
+    onCloseRef.current();
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
