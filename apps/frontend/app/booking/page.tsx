@@ -1,147 +1,197 @@
 'use client';
-import { useState } from 'react';
+
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { BenefitCard } from '@/components/BenefitCard';
+import { TourBookingForm } from '@/components/TourBookingForm';
+import { Butterfly, Flower } from '@/components/Decorations';
 
-const BookingSchema = z.object({
-  visitor_name: z.string().min(2, 'Name required'),
-  email: z.string().email('Valid email required'),
-  phone: z.string().min(10, 'Valid phone required'),
-  preferred_date: z.string().min(1, 'Date required'),
-  time_slot: z.string().min(1, 'Time slot required'),
-});
+/* -------------------------------------------------------------------------- */
+/* Data                                                                        */
+/* -------------------------------------------------------------------------- */
 
-type BookingForm = z.infer<typeof BookingSchema>;
+interface TourFact {
+  icon: string;
+  label: string;
+  value: string;
+  description: string;
+}
 
-export default function Booking() {
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [availability, setAvailability] = useState<string[]>([]);
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<BookingForm>({
-    resolver: zodResolver(BookingSchema),
-  });
+const TOUR_FACTS: readonly TourFact[] = [
+  {
+    icon: '⏱️',
+    label: 'Duration',
+    value: '45 minutes',
+    description: 'Long enough to see every room without rushing your morning.',
+  },
+  {
+    icon: '👥',
+    label: 'Group Size',
+    value: '2-4 people',
+    description: 'Small groups, so there is time for your own questions.',
+  },
+  {
+    icon: '🗣️',
+    label: 'Languages',
+    value: 'English & Arabic',
+    description: 'Tell us which you prefer and we will match you with a guide.',
+  },
+  {
+    icon: '📅',
+    label: 'Availability',
+    value: 'By appointment',
+    description: 'Weekday slots from 9:00 AM, booked up to 30 days ahead.',
+  },
+];
 
-  const selectedDate = watch('preferred_date');
+const BENEFITS = [
+  {
+    icon: '🏢',
+    title: 'See Our Facilities',
+    description:
+      'Modern classrooms, outdoor play areas, and specialized learning centers.',
+  },
+  {
+    icon: '👨‍🏫',
+    title: 'Meet Our Team',
+    description:
+      "Experienced educators dedicated to your child's growth and happiness.",
+  },
+  {
+    icon: '📚',
+    title: 'Learn About Programs',
+    description:
+      'Detailed information about our curriculum and approach to early learning.',
+  },
+  {
+    icon: '❓',
+    title: 'Ask Questions',
+    description:
+      'Get answers to all your questions about enrollment, schedules, and costs.',
+  },
+] as const;
 
-  // Keep react-hook-form's own onChange — spreading register() then overriding
-  // onChange would stop the field from ever registering a value.
-  const dateField = register('preferred_date');
+/* -------------------------------------------------------------------------- */
+/* Page                                                                        */
+/* -------------------------------------------------------------------------- */
 
-  async function checkAvailability(date: string) {
-    if (!date) {
-      setAvailability([]);
-      return;
-    }
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/tour-bookings/availability?date=${date}`);
-      const data = await res.json();
-      setAvailability(Array.isArray(data.available) ? data.available : []);
-    } catch (err) {
-      console.error('Failed to check availability:', err);
-      setAvailability([]);
-    }
-  }
-
-  async function onSubmit(data: BookingForm) {
-    try {
-      setError(null);
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/tour-bookings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...data,
-          // The API validates preferred_date as an ISO 8601 datetime; a bare
-          // YYYY-MM-DD from <input type="date"> is rejected.
-          preferred_date: `${data.preferred_date}T${data.time_slot}:00.000Z`,
-        }),
-      });
-      if (!res.ok) {
-        if (res.status === 409) {
-          setError('That time slot has just been taken. Please pick another.');
-          return;
-        }
-        throw new Error('Booking failed');
-      }
-      setSubmitted(true);
-    } catch {
-      setError('Failed to book tour. Please try again.');
-    }
-  }
-
+export default function BookingPage() {
   return (
     <>
       <Header />
-      <main className="min-h-screen bg-white">
-        <section className="py-16 px-4 sm:py-24 max-w-2xl mx-auto">
-          <h1 className="text-4xl sm:text-5xl font-bold mb-8 text-center text-gray-900">Book a Tour</h1>
 
-          {submitted ? (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
-              <p className="text-green-800 font-semibold">Tour booking confirmed! We&apos;ll send you a confirmation email.</p>
+      <main className="bg-white">
+        {/* ---------------------------------------------------------------- */}
+        {/* 1. Hero                                                          */}
+        {/* ---------------------------------------------------------------- */}
+        <section
+          aria-labelledby="hero-heading"
+          className="relative flex min-h-62.5 items-center justify-center overflow-hidden bg-gradient-to-br from-blue-500 to-amber-500 px-4 lg:min-h-100"
+        >
+          <Butterfly className="absolute left-[8%] top-[20%] w-14 text-white opacity-20 lg:w-20" />
+          <Flower className="absolute right-[10%] bottom-[22%] w-12 text-white opacity-20 lg:w-20" />
+
+          <div className="relative z-10 mx-auto max-w-3xl py-12 text-center">
+            <h1
+              id="hero-heading"
+              className="text-3xl font-bold text-white drop-shadow-md md:text-4xl lg:text-5xl"
+            >
+              Schedule a Tour
+            </h1>
+            <p className="mt-4 text-lg text-blue-50 drop-shadow md:text-xl">
+              See our facilities and meet our team
+            </p>
+          </div>
+        </section>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* 2. Tour information                                              */}
+        {/* ---------------------------------------------------------------- */}
+        <section aria-labelledby="tour-info-heading" className="bg-white py-16 md:py-24">
+          <div className="mx-auto max-w-6xl px-4 md:px-6 lg:px-8">
+            <h2
+              id="tour-info-heading"
+              className="mb-4 text-center text-2xl font-bold text-gray-800 md:text-3xl"
+            >
+              Why Tour Little Smarties?
+            </h2>
+            <p className="mx-auto mb-10 max-w-2xl text-center text-base text-gray-600 md:mb-12 md:text-lg">
+              A website can only show you so much. Come and see the rooms while the children are in
+              them, meet the people who would be caring for your child, and ask the questions that
+              matter to your family.
+            </p>
+
+            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:gap-10 lg:grid-cols-4">
+              {TOUR_FACTS.map((fact) => (
+                <article
+                  key={fact.label}
+                  className="flex h-full flex-col rounded-lg bg-white p-6 shadow-md transition-shadow duration-200 ease-in-out hover:shadow-lg"
+                >
+                  <span className="mb-3 text-4xl" aria-hidden="true">
+                    {fact.icon}
+                  </span>
+                  <p className="text-sm text-gray-600">{fact.label}</p>
+                  <p className="mb-2 text-2xl font-bold text-red-600">{fact.value}</p>
+                  <p className="text-base text-gray-700">{fact.description}</p>
+                </article>
+              ))}
             </div>
-          ) : (
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {error && <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">{error}</div>}
+          </div>
+        </section>
 
-              <div>
-                <label htmlFor="visitor_name" className="block text-sm font-semibold mb-2 text-gray-900">Your Name</label>
-                <input id="visitor_name" {...register('visitor_name')} className="w-full px-4 py-2 border border-gray-300 rounded" placeholder="Name" />
-                {errors.visitor_name && <p className="text-red-500 text-sm mt-1">{errors.visitor_name.message}</p>}
-              </div>
+        {/* ---------------------------------------------------------------- */}
+        {/* 3 & 4. Progress indicator and booking form                       */}
+        {/* ---------------------------------------------------------------- */}
+        <section aria-labelledby="booking-heading" className="bg-white py-20 md:py-32">
+          <div className="mx-auto max-w-4xl px-4 md:px-6">
+            <h2 id="booking-heading" className="sr-only">
+              Tour booking form
+            </h2>
 
-              <div>
-                <label htmlFor="email" className="block text-sm font-semibold mb-2 text-gray-900">Email</label>
-                <input id="email" {...register('email')} type="email" className="w-full px-4 py-2 border border-gray-300 rounded" placeholder="Email" />
-                {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>}
-              </div>
+            {/* Bordered because the section behind it is also white */}
+            <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-md md:p-8">
+              <TourBookingForm />
+            </div>
 
-              <div>
-                <label htmlFor="phone" className="block text-sm font-semibold mb-2 text-gray-900">Phone</label>
-                <input id="phone" {...register('phone')} type="tel" className="w-full px-4 py-2 border border-gray-300 rounded" placeholder="Phone number" />
-                {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone.message}</p>}
-              </div>
+            <p className="mt-6 text-center text-sm text-gray-600">
+              Prefer to arrange it over the phone?{' '}
+              <a
+                href="tel:+971562677747"
+                className="font-semibold text-red-600 underline transition-colors hover:text-red-700"
+              >
+                Call us on +971 56 267 7747
+              </a>
+              .
+            </p>
+          </div>
+        </section>
 
-              <div>
-                <label htmlFor="preferred_date" className="block text-sm font-semibold mb-2 text-gray-900">Preferred Date</label>
-                <input
-                  id="preferred_date"
-                  {...dateField}
-                  type="date"
-                  className="w-full px-4 py-2 border border-gray-300 rounded"
-                  onChange={(e) => {
-                    void dateField.onChange(e);
-                    void checkAvailability(e.target.value);
-                  }}
+        {/* ---------------------------------------------------------------- */}
+        {/* 7. Benefits                                                      */}
+        {/* ---------------------------------------------------------------- */}
+        <section aria-labelledby="benefits-heading" className="bg-gray-100 py-20 md:py-32">
+          <div className="mx-auto max-w-5xl px-4 md:px-6 lg:px-8">
+            <h2
+              id="benefits-heading"
+              className="mb-10 text-center text-2xl font-bold text-gray-800 md:mb-12 md:text-3xl lg:text-4xl"
+            >
+              Why Parents Love Little Smarties
+            </h2>
+
+            <div className="grid grid-cols-1 gap-8 md:gap-10 lg:grid-cols-2">
+              {BENEFITS.map((benefit) => (
+                <BenefitCard
+                  key={benefit.title}
+                  icon={benefit.icon}
+                  title={benefit.title}
+                  description={benefit.description}
                 />
-                {errors.preferred_date && <p className="text-red-500 text-sm mt-1">{errors.preferred_date.message}</p>}
-              </div>
-
-              {selectedDate && (
-                <div>
-                  <label htmlFor="time_slot" className="block text-sm font-semibold mb-2 text-gray-900">Time Slot</label>
-                  <select id="time_slot" {...register('time_slot')} className="w-full px-4 py-2 border border-gray-300 rounded">
-                    <option value="">Select time slot</option>
-                    {availability.map(slot => (
-                      <option key={slot} value={slot}>{slot}</option>
-                    ))}
-                  </select>
-                  {availability.length === 0 && (
-                    <p className="text-gray-500 text-sm mt-1">No slots available on this date.</p>
-                  )}
-                  {errors.time_slot && <p className="text-red-500 text-sm mt-1">{errors.time_slot.message}</p>}
-                </div>
-              )}
-
-              <button type="submit" disabled={isSubmitting} className="w-full bg-blue-500 text-white py-3 rounded font-bold hover:bg-blue-600 disabled:opacity-50">
-                {isSubmitting ? 'Booking...' : 'Book Tour'}
-              </button>
-            </form>
-          )}
+              ))}
+            </div>
+          </div>
         </section>
       </main>
+
       <Footer />
     </>
   );
