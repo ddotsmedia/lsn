@@ -1,101 +1,66 @@
 'use client';
-import { useState } from 'react';
+
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { RegistrationForm } from '@/components/RegistrationForm';
+import { Butterfly, Cloud } from '@/components/Decorations';
 
-const RegisterSchema = z.object({
-  first_name: z.string().min(2, 'First name required'),
-  last_name: z.string().min(2, 'Last name required'),
-  email: z.string().email('Valid email required'),
-  phone: z.string().min(10, 'Valid phone required'),
-  age_group_id: z.string().min(1, 'Age group required'),
-});
-
-type RegisterForm = z.infer<typeof RegisterSchema>;
-
-export default function Register() {
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<RegisterForm>({
-    resolver: zodResolver(RegisterSchema),
-  });
-
-  async function onSubmit(data: RegisterForm) {
-    try {
-      setError(null);
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/registrations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error('Registration failed');
-      setSubmitted(true);
-    } catch {
-      setError('Failed to register. Please try again.');
-    }
-  }
-
+export default function RegisterPage() {
   return (
     <>
       <Header />
-      <main className="min-h-screen bg-white">
-        <section className="py-16 px-4 sm:py-24 max-w-2xl mx-auto">
-          <h1 className="text-4xl sm:text-5xl font-bold mb-8 text-center text-gray-900">Register Your Child</h1>
 
-          {submitted ? (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
-              <p className="text-green-800 font-semibold">Registration successful! We&apos;ll be in touch soon.</p>
+      <main className="bg-white">
+        {/* ---------------------------------------------------------------- */}
+        {/* Hero                                                             */}
+        {/* ---------------------------------------------------------------- */}
+        <section
+          aria-labelledby="hero-heading"
+          className="relative flex min-h-62.5 items-center justify-center overflow-hidden bg-gradient-to-br from-blue-800 to-red-600 px-4 lg:min-h-100"
+        >
+          <Butterfly className="absolute left-[8%] top-[20%] w-14 text-white opacity-20 lg:w-20" />
+          <Cloud className="absolute right-[9%] bottom-[20%] w-24 text-white opacity-20 lg:w-36" />
+
+          <div className="relative z-10 mx-auto max-w-3xl py-12 text-center">
+            <h1
+              id="hero-heading"
+              className="text-3xl font-bold text-white drop-shadow-md md:text-4xl lg:text-5xl"
+            >
+              Enroll Your Child
+            </h1>
+            <p className="mt-4 text-lg text-blue-50 drop-shadow md:text-xl">
+              Start their learning journey with us
+            </p>
+          </div>
+        </section>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Multi-step registration form                                     */}
+        {/* ---------------------------------------------------------------- */}
+        <section aria-labelledby="form-heading" className="bg-gray-100 py-20 md:py-32">
+          <div className="mx-auto max-w-3xl px-4 md:px-6">
+            <h2 id="form-heading" className="sr-only">
+              Registration form
+            </h2>
+
+            <div className="rounded-lg bg-white p-6 shadow-md md:p-8">
+              <RegistrationForm />
             </div>
-          ) : (
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {error && <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">{error}</div>}
 
-              <div>
-                <label htmlFor="first_name" className="block text-sm font-semibold mb-2 text-gray-900">First Name</label>
-                <input id="first_name" {...register('first_name')} className="w-full px-4 py-2 border border-gray-300 rounded" placeholder="First name" />
-                {errors.first_name && <p className="text-red-500 text-sm mt-1">{errors.first_name.message}</p>}
-              </div>
-
-              <div>
-                <label htmlFor="last_name" className="block text-sm font-semibold mb-2 text-gray-900">Last Name</label>
-                <input id="last_name" {...register('last_name')} className="w-full px-4 py-2 border border-gray-300 rounded" placeholder="Last name" />
-                {errors.last_name && <p className="text-red-500 text-sm mt-1">{errors.last_name.message}</p>}
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-semibold mb-2 text-gray-900">Email</label>
-                <input id="email" {...register('email')} type="email" className="w-full px-4 py-2 border border-gray-300 rounded" placeholder="Email" />
-                {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>}
-              </div>
-
-              <div>
-                <label htmlFor="phone" className="block text-sm font-semibold mb-2 text-gray-900">Phone</label>
-                <input id="phone" {...register('phone')} type="tel" className="w-full px-4 py-2 border border-gray-300 rounded" placeholder="Phone number" />
-                {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone.message}</p>}
-              </div>
-
-              <div>
-                <label htmlFor="age_group_id" className="block text-sm font-semibold mb-2 text-gray-900">Age Group</label>
-                <select id="age_group_id" {...register('age_group_id')} className="w-full px-4 py-2 border border-gray-300 rounded">
-                  <option value="">Select age group</option>
-                  <option value="1">18 months - 2 years</option>
-                  <option value="2">2 - 3 years</option>
-                  <option value="3">3 - 4 years</option>
-                  <option value="4">4 - 5 years</option>
-                </select>
-                {errors.age_group_id && <p className="text-red-500 text-sm mt-1">{errors.age_group_id.message}</p>}
-              </div>
-
-              <button type="submit" disabled={isSubmitting} className="w-full bg-blue-500 text-white py-3 rounded font-bold hover:bg-blue-600 disabled:opacity-50">
-                {isSubmitting ? 'Registering...' : 'Register'}
-              </button>
-            </form>
-          )}
+            <p className="mt-6 text-center text-sm text-gray-600">
+              Prefer to talk it through first?{' '}
+              <a
+                href="tel:+971562677747"
+                className="font-semibold text-red-600 underline transition-colors hover:text-red-700"
+              >
+                Call us on +971 56 267 7747
+              </a>
+              .
+            </p>
+          </div>
         </section>
       </main>
+
       <Footer />
     </>
   );
