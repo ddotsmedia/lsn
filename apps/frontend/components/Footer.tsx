@@ -1,29 +1,167 @@
+'use client';
+
+import Link from 'next/link';
+import React from 'react';
+
+interface FooterLink {
+  label: string;
+  href: string;
+}
+
+interface SocialLink {
+  label: string;
+  href: string;
+  path: string;
+}
+
+const CONTACT = {
+  emails: ['lsn@gmail.com', 'info@lsn.ae'],
+  phone: '+971 56 267 7747',
+  hours: ['Mon–Fri: 7:00 – 18:00', 'Weekends: Closed'],
+  address: 'Dubai, United Arab Emirates',
+} as const;
+
+/**
+ * Program pages do not exist yet, so these point at in-page anchors on the
+ * nursery page. They resolve to the top of that page until the sections land.
+ */
+const PROGRAM_LINKS: readonly FooterLink[] = [
+  { label: 'Infant Care', href: '/about#infant-care' },
+  { label: 'Toddler Program', href: '/about#toddler-program' },
+  { label: 'Preschool', href: '/about#preschool' },
+  { label: 'Pre-K', href: '/about#pre-k' },
+];
+
+const QUICK_LINKS: readonly FooterLink[] = [
+  { label: 'Facilities', href: '/facilities' },
+  { label: 'Gallery', href: '/gallery' },
+  { label: 'Register', href: '/register' },
+  { label: 'Book a Tour', href: '/booking' },
+];
+
+const ABOUT_LINKS: readonly FooterLink[] = [
+  { label: 'Nursery', href: '/about' },
+  { label: 'Contact', href: '/contact' },
+  { label: 'Events', href: '/events' },
+];
+
+/** Replace `#` with the real profile URLs once they are confirmed. */
+const SOCIAL_LINKS: readonly SocialLink[] = [
+  {
+    label: 'Facebook',
+    href: '#',
+    path: 'M13.5 21v-7.5h2.5l.4-2.9h-2.9V8.7c0-.84.23-1.41 1.44-1.41h1.54V4.69c-.27-.04-1.18-.12-2.24-.12-2.22 0-3.74 1.36-3.74 3.85v2.15H8v2.9h2.5V21z',
+  },
+  {
+    label: 'Instagram',
+    href: '#',
+    path: 'M12 7.4a4.6 4.6 0 100 9.2 4.6 4.6 0 000-9.2zm0 7.6a3 3 0 110-6 3 3 0 010 6zm5.8-7.8a1.07 1.07 0 11-2.14 0 1.07 1.07 0 012.14 0zM12 3.6c-2.28 0-2.56.01-3.46.05-.9.04-1.51.18-2.05.39a4.1 4.1 0 00-1.49.97c-.44.44-.72.88-.97 1.49-.2.54-.35 1.15-.39 2.05C3.6 9.44 3.6 9.72 3.6 12s.01 2.56.05 3.46c.04.9.18 1.51.39 2.05.21.61.53 1.05.97 1.49.44.44.88.72 1.49.97.54.2 1.15.35 2.05.39.9.04 1.18.05 3.46.05s2.56-.01 3.46-.05c.9-.04 1.51-.18 2.05-.39a4.1 4.1 0 001.49-.97c.44-.44.72-.88.97-1.49.2-.54.35-1.15.39-2.05.04-.9.05-1.18.05-3.46s-.01-2.56-.05-3.46c-.04-.9-.18-1.51-.39-2.05a4.1 4.1 0 00-.97-1.49 4.1 4.1 0 00-1.49-.97c-.54-.2-1.15-.35-2.05-.39-.9-.04-1.18-.05-3.46-.05zm0 1.62c2.24 0 2.5.01 3.39.05.82.04 1.26.17 1.56.29.39.15.67.33.96.62.29.29.47.57.62.96.12.3.25.74.29 1.56.04.89.05 1.15.05 3.39s-.01 2.5-.05 3.39c-.04.82-.17 1.26-.29 1.56-.15.39-.33.67-.62.96-.29.29-.57.47-.96.62-.3.12-.74.25-1.56.29-.89.04-1.15.05-3.39.05s-2.5-.01-3.39-.05c-.82-.04-1.26-.17-1.56-.29a2.6 2.6 0 01-.96-.62 2.6 2.6 0 01-.62-.96c-.12-.3-.25-.74-.29-1.56-.04-.89-.05-1.15-.05-3.39s.01-2.5.05-3.39c.04-.82.17-1.26.29-1.56.15-.39.33-.67.62-.96.29-.29.57-.47.96-.62.3-.12.74-.25 1.56-.29.89-.04 1.15-.05 3.39-.05z',
+  },
+  {
+    label: 'LinkedIn',
+    href: '#',
+    path: 'M6.94 8.5H4.06V20h2.88V8.5zM5.5 3.9a1.67 1.67 0 100 3.34 1.67 1.67 0 000-3.34zM20 13.72c0-3.1-1.66-4.54-3.87-4.54-1.78 0-2.58.98-3.02 1.67V8.5H10.2c.04.81 0 11.5 0 11.5h2.9v-6.42c0-.26.02-.52.1-.7.2-.52.68-1.06 1.48-1.06 1.05 0 1.47.8 1.47 1.96V20H20v-6.28z',
+  },
+  {
+    label: 'TikTok',
+    href: '#',
+    path: 'M16.6 5.82A4.28 4.28 0 0115.54 3h-3.09v12.4a2.59 2.59 0 01-2.59 2.5 2.59 2.59 0 01-2.59-2.59 2.59 2.59 0 013.17-2.53v-3.13a5.71 5.71 0 00-.58-.03A5.71 5.71 0 004.15 15.3 5.71 5.71 0 009.86 21a5.71 5.71 0 005.71-5.71V9.01a7.35 7.35 0 004.28 1.37V7.29a4.28 4.28 0 01-3.25-1.47z',
+  },
+  {
+    label: 'Snapchat',
+    href: '#',
+    path: 'M12 3.2c2.35 0 4.2 1.9 4.2 4.25 0 .77-.05 1.5-.1 2.06.28.15.62.2.95.1.5-.15.93.2.99.6.06.4-.22.7-.72.9-.5.2-1.2.36-1.3.68-.08.25.1.6.4 1.05.62.94 1.6 1.87 2.72 2.16.34.09.5.33.44.62-.09.44-.79.73-1.72.88-.14.02-.24.2-.3.5-.05.24-.1.5-.28.6-.2.1-.5.05-.9-.03a4.2 4.2 0 00-1.9.05c-.4.13-.76.42-1.15.72-.53.4-1.13.86-2.03.86s-1.5-.46-2.03-.86c-.39-.3-.75-.59-1.15-.72a4.2 4.2 0 00-1.9-.05c-.4.08-.7.13-.9.03-.18-.1-.23-.36-.28-.6-.06-.3-.16-.48-.3-.5-.93-.15-1.63-.44-1.72-.88-.06-.29.1-.53.44-.62 1.12-.29 2.1-1.22 2.72-2.16.3-.45.48-.8.4-1.05-.1-.32-.8-.48-1.3-.68-.5-.2-.78-.5-.72-.9.06-.4.49-.75.99-.6.33.1.67.05.95-.1-.05-.56-.1-1.29-.1-2.06C7.8 5.1 9.65 3.2 12 3.2z',
+  },
+];
+
+function FooterLinkList({ title, links }: { title: string; links: readonly FooterLink[] }) {
+  return (
+    <div>
+      <h3 className="mb-4 text-base font-semibold text-white">{title}</h3>
+      <ul className="space-y-2">
+        {links.map((link) => (
+          <li key={link.href}>
+            <Link
+              href={link.href}
+              className="text-sm text-gray-400 transition-colors duration-200 ease-in-out hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded"
+            >
+              {link.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export default function Footer() {
   return (
-    <footer className="bg-gray-900 text-white py-12 px-4">
-      <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-8">
-        <div>
-          <h3 className="font-bold text-lg mb-3">Little Smarties</h3>
-          <p className="text-gray-300 text-sm">Nurturing young minds, building bright futures.</p>
+    <footer className="bg-gray-900 text-gray-400">
+      <div className="mx-auto max-w-6xl px-4 py-10 md:px-6 md:py-12 lg:px-8">
+        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:gap-6 lg:grid-cols-5 lg:gap-8">
+          {/* Column 1 — brand and contact details */}
+          <div className="sm:col-span-2 lg:col-span-1">
+            <h2 className="mb-4 text-lg font-bold text-white">Little Smarties</h2>
+            <address className="space-y-2 text-sm not-italic">
+              {CONTACT.emails.map((email) => (
+                <p key={email}>
+                  <a
+                    href={`mailto:${email}`}
+                    className="transition-colors duration-200 ease-in-out hover:text-white"
+                  >
+                    {email}
+                  </a>
+                </p>
+              ))}
+              <p>
+                <a
+                  href={`tel:${CONTACT.phone.replace(/\s/g, '')}`}
+                  className="transition-colors duration-200 ease-in-out hover:text-white"
+                >
+                  {CONTACT.phone}
+                </a>
+              </p>
+              <p className="pt-2">{CONTACT.address}</p>
+            </address>
+            <div className="mt-4 space-y-1 text-sm">
+              {CONTACT.hours.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+            </div>
+          </div>
+
+          {/* Columns 2–4 — navigation */}
+          <FooterLinkList title="Programs" links={PROGRAM_LINKS} />
+          <FooterLinkList title="Links" links={QUICK_LINKS} />
+          <FooterLinkList title="About" links={ABOUT_LINKS} />
+
+          {/* Column 5 — social */}
+          <div>
+            <h3 className="mb-4 text-base font-semibold text-white">Follow Us</h3>
+            <ul className="flex flex-wrap gap-3">
+              {SOCIAL_LINKS.map((social) => (
+                <li key={social.label}>
+                  <a
+                    href={social.href}
+                    aria-label={social.label}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-gray-800 text-gray-400 transition-all duration-200 ease-in-out hover:bg-red-600 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  >
+                    <svg width={20} height={20} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d={social.path} />
+                    </svg>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
-        <div>
-          <h3 className="font-bold mb-3">Quick Links</h3>
-          <ul className="space-y-2 text-sm text-gray-300">
-            <li><a href="/about" className="hover:text-white">About Us</a></li>
-            <li><a href="/facilities" className="hover:text-white">Facilities</a></li>
-            <li><a href="/contact" className="hover:text-white">Contact</a></li>
-          </ul>
+
+        <div className="mt-10 border-t border-gray-800 pt-6 text-center text-sm text-gray-500">
+          <p>&copy; 2026 Little Smarties Nursery School. All rights reserved.</p>
         </div>
-        <div>
-          <h3 className="font-bold mb-3">Contact</h3>
-          <p className="text-sm text-gray-300">📞 +1 (555) 123-4567</p>
-          <p className="text-sm text-gray-300">✉️ info@littlesmarties.com</p>
-          <p className="text-sm text-gray-300">📍 123 Learning Lane</p>
-        </div>
-      </div>
-      <div className="max-w-6xl mx-auto mt-8 pt-8 border-t border-gray-700 text-center text-sm text-gray-400">
-        <p>&copy; 2024 Little Smarties Nursery. All rights reserved.</p>
       </div>
     </footer>
   );
 }
+
+export { Footer, PROGRAM_LINKS, QUICK_LINKS, ABOUT_LINKS, SOCIAL_LINKS };
