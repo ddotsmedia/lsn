@@ -18,7 +18,7 @@ const CONTACT = {
   emails: ['lsn@gmail.com', 'info@lsn.ae'],
   phone: '+971 56 267 7747',
   hours: ['Mon–Fri: 7:00 – 18:00', 'Weekends: Closed'],
-  address: 'Dubai, United Arab Emirates',
+  address: ['Ministry of Justice Building', 'Khalifa City (A)', 'Abu Dhabi, UAE'],
 } as const;
 
 /**
@@ -121,7 +121,11 @@ export default function Footer() {
                   {CONTACT.phone}
                 </a>
               </p>
-              <p className="pt-2">{CONTACT.address}</p>
+              <div className="pt-2">
+                {CONTACT.address.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+              </div>
             </address>
             <div className="mt-4 space-y-1 text-sm">
               {CONTACT.hours.map((line) => (
