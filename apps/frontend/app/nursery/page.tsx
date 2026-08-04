@@ -1,0 +1,494 @@
+'use client';
+
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import { Button } from '@/components/Button';
+import { Carousel } from '@/components/Carousel';
+import { MissionCard, type MissionCardColor, type MissionCardTitle } from '@/components/MissionCard';
+import { StatCard } from '@/components/StatCard';
+import { TeamMemberCard } from '@/components/TeamMemberCard';
+import { Butterfly, Circle, Cloud, Flower } from '@/components/Decorations';
+
+/* -------------------------------------------------------------------------- */
+/* Data                                                                        */
+/* -------------------------------------------------------------------------- */
+
+interface MissionEntry {
+  icon: string;
+  title: MissionCardTitle;
+  content: string;
+  color: MissionCardColor;
+}
+
+const MISSION_VISION_VALUES: readonly MissionEntry[] = [
+  {
+    icon: '🎯',
+    title: 'Mission',
+    content:
+      'To provide high-quality early childhood education that nurtures the whole child - academically, socially, emotionally, and physically. We create a safe, loving environment where every child can thrive and reach their full potential.',
+    color: 'red',
+  },
+  {
+    icon: '🌟',
+    title: 'Vision',
+    content:
+      'Every child confident, creative, curious, and kind. We envision a world where early childhood education empowers children to become lifelong learners and engaged global citizens.',
+    color: 'blue',
+  },
+  {
+    icon: '💎',
+    title: 'Values',
+    content:
+      'Nurturing: We care deeply for each child. Safe: We provide a secure environment. Inclusive: We celebrate diversity. Excellence: We pursue the highest standards. Growth: We support continuous development.',
+    color: 'green',
+  },
+];
+
+interface PhilosophyEntry {
+  title: string;
+  paragraphs: readonly string[];
+  /** Tailwind gradient classes for the accompanying placeholder image. */
+  gradient: string;
+}
+
+const PHILOSOPHY: readonly PhilosophyEntry[] = [
+  {
+    title: 'Learning Through Play',
+    paragraphs: [
+      'Young children make sense of the world by handling it, testing it and talking about it. Our rooms are set up so that play is the work of the day: open-ended materials, space to build, and adults who join in rather than direct.',
+      'Every activity has a developmental purpose behind it, even when it looks like nothing more than water, sand or blocks. Our teachers plan around what each group is curious about that week, then step back and let the exploring happen.',
+    ],
+    gradient: 'from-blue-100 to-blue-200',
+  },
+  {
+    title: 'Every Child on Their Own Path',
+    paragraphs: [
+      'Children reach the same milestones at different times, and that is entirely normal. We observe and record where each child is rather than measuring them against a fixed timetable, and we plan the next small step from there.',
+      'Small group sizes mean a teacher can notice when a child is ready to be stretched, or when they need more time to consolidate. Progress is shared with families regularly so there are no surprises.',
+    ],
+    gradient: 'from-red-100 to-orange-100',
+  },
+  {
+    title: 'A Partnership With Families',
+    paragraphs: [
+      'What happens at home and what happens at nursery need to point in the same direction. We keep communication frequent and practical, so families know what their child did today and what they are working towards.',
+      'Parents are welcome to visit, ask questions and tell us what they are seeing at home. The children benefit most when the adults around them are working from the same picture.',
+    ],
+    gradient: 'from-green-100 to-emerald-200',
+  },
+];
+
+interface TeamMember {
+  name: string;
+  position: string;
+  bio: string;
+}
+
+const TEAM: readonly TeamMember[] = [
+  {
+    name: 'Sarah Ahmed',
+    position: 'Director',
+    bio: '20+ years in early childhood education and program development. Former education advisor. Passionate about creating inclusive learning environments.',
+  },
+  {
+    name: 'Fatima Khan',
+    position: 'Head Teacher - Infants',
+    bio: '15+ years working with infants and toddlers. Specialized training in developmental psychology. Dedicated to responsive caregiving.',
+  },
+  {
+    name: 'Aisha Mohammed',
+    position: 'Head Teacher - Toddlers',
+    bio: '12+ years in toddler care and early learning. Certified in Montessori and Reggio Emilia approaches.',
+  },
+  {
+    name: 'Layla Hassan',
+    position: 'Head Teacher - Preschool',
+    bio: '10+ years in preschool education. Specialist in curriculum development and art therapy.',
+  },
+  {
+    name: 'Maryam Ibrahim',
+    position: 'Support Staff & Activities Coordinator',
+    bio: "8+ years supporting children's activities and special programs. Background in music and dance therapy.",
+  },
+  {
+    name: 'Zainab Ali',
+    position: 'Nutritionist & Wellness Coordinator',
+    bio: 'Registered dietitian with 6+ years in pediatric nutrition. Ensures all meals meet health and safety standards.',
+  },
+];
+
+interface Achievement {
+  number: string;
+  label: string;
+}
+
+const ACHIEVEMENTS: readonly Achievement[] = [
+  { number: '20+', label: 'Years in Business' },
+  { number: '500+', label: 'Children Served' },
+  { number: '25+', label: 'Staff Members' },
+  { number: '4.9', label: 'Star Rating' },
+];
+
+interface Testimonial {
+  quote: string;
+  author: string;
+  location: string;
+  rating: number;
+}
+
+const TESTIMONIALS: readonly Testimonial[] = [
+  {
+    quote:
+      'My daughter has flourished at Little Smarties. The teachers are so caring and professional. I see her learning and growing every single day.',
+    author: 'Fatima Al-Mansouri',
+    location: 'Abu Dhabi',
+    rating: 5,
+  },
+  {
+    quote:
+      'Best decision we made for our son’s early education. The facilities are amazing and the teachers truly know each child individually.',
+    author: 'Mohammad Al-Mazrouei',
+    location: 'Abu Dhabi',
+    rating: 5,
+  },
+  {
+    quote:
+      'Little Smarties is a home away from home. My twins are happy, engaged, and learning so much. Highly recommended!',
+    author: 'Hana Al-Ketbi',
+    location: 'Abu Dhabi',
+    rating: 5,
+  },
+  {
+    quote:
+      'Professional, caring, and educational. Everything we look for in a nursery. Our child looks forward to going every day!',
+    author: 'Ahmed Al-Suwaidi',
+    location: 'Abu Dhabi',
+    rating: 5,
+  },
+];
+
+/* -------------------------------------------------------------------------- */
+/* Local presentational pieces                                                 */
+/* -------------------------------------------------------------------------- */
+
+interface StarRatingProps {
+  rating: number;
+  max?: number;
+}
+
+/** Renders `rating` filled stars out of `max`, announced as a single label. */
+function StarRating({ rating, max = 5 }: StarRatingProps) {
+  const filled = Math.max(0, Math.min(Math.round(rating), max));
+
+  return (
+    <div
+      className="flex items-center gap-0.5"
+      role="img"
+      aria-label={`${rating} out of ${max} stars`}
+    >
+      {Array.from({ length: max }, (_, index) => (
+        <svg
+          key={index}
+          width={18}
+          height={18}
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+          className={index < filled ? 'text-yellow-400' : 'text-gray-300'}
+          fill="currentColor"
+        >
+          <path d="M12 2.5l2.9 5.9 6.5.95-4.7 4.58 1.11 6.47L12 17.35l-5.81 3.05 1.11-6.47L2.6 9.35l6.5-.95L12 2.5z" />
+        </svg>
+      ))}
+    </div>
+  );
+}
+
+function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
+  return (
+    <figure className="flex h-full flex-col rounded-lg bg-white p-6 shadow-md transition-shadow duration-200 ease-in-out hover:shadow-lg md:p-8">
+      <StarRating rating={testimonial.rating} />
+      <blockquote className="mt-4 grow text-base leading-relaxed text-gray-700">
+        &ldquo;{testimonial.quote}&rdquo;
+      </blockquote>
+      <figcaption className="mt-5 border-t border-gray-100 pt-4">
+        <span className="block font-semibold text-gray-800">{testimonial.author}</span>
+        <span className="block text-sm text-gray-600">{testimonial.location}</span>
+      </figcaption>
+    </figure>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Page                                                                        */
+/* -------------------------------------------------------------------------- */
+
+export default function NurseryPage() {
+  return (
+    <>
+      <Header />
+
+      <main className="bg-white">
+        {/* ---------------------------------------------------------------- */}
+        {/* 1. Hero                                                          */}
+        {/* ---------------------------------------------------------------- */}
+        <section
+          aria-labelledby="hero-heading"
+          className="relative flex min-h-75 items-center justify-center overflow-hidden bg-gradient-to-br from-blue-800 to-blue-500 px-4 lg:min-h-125"
+        >
+          {/* Decorative accents — hidden from assistive tech. */}
+          <Butterfly className="absolute left-[6%] top-[18%] w-16 text-white opacity-20 lg:w-24" />
+          <Flower className="absolute right-[8%] top-[22%] w-12 text-white opacity-20 lg:w-20" />
+          <Cloud className="absolute bottom-[12%] left-[14%] w-24 text-white opacity-20 lg:w-40" />
+          <Circle className="absolute -right-8 -bottom-10 w-40 text-white opacity-20 lg:w-64" />
+
+          <div className="relative z-10 mx-auto max-w-3xl py-16 text-center">
+            <h1 id="hero-heading" className="text-3xl font-bold text-white md:text-4xl lg:text-5xl">
+              Little Smarties Nursery
+            </h1>
+            <p className="mt-4 text-lg text-blue-50 md:text-xl">
+              Committed to nurturing young minds since 2007
+            </p>
+          </div>
+        </section>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* 2. Brief intro                                                   */}
+        {/* ---------------------------------------------------------------- */}
+        <section aria-labelledby="intro-heading" className="bg-white py-16 md:py-24">
+          <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-8 px-4 md:px-6 lg:grid-cols-2 lg:gap-12 lg:px-8">
+            <div
+              className="order-1 aspect-4/3 w-full rounded-lg bg-gradient-to-br from-blue-100 to-blue-200"
+              role="img"
+              aria-label="Little Smarties Early Learning Centre"
+            />
+
+            <div className="order-2 p-0 md:p-2 lg:p-4">
+              <h2
+                id="intro-heading"
+                className="mb-4 text-2xl font-bold text-gray-800 md:mb-6 md:text-3xl lg:text-4xl"
+              >
+                Little Smarties Early Learning Centre
+              </h2>
+              <div className="space-y-4 text-base leading-relaxed text-gray-700">
+                <p>
+                  Little Smarties opened its doors in 2007 with a single room, a handful of families
+                  and a straightforward idea: that the early years deserve the same care and thought
+                  as any later stage of education.
+                </p>
+                <p>
+                  Nearly two decades on, we have grown into a full early learning centre serving
+                  children from infancy through to school readiness. What has not changed is the
+                  scale at which we work — small groups, familiar faces, and teachers who know every
+                  child by name and by temperament.
+                </p>
+                <p>
+                  Our teaching team combines formal training in early childhood education with years
+                  of practical experience in the classroom. Many have been with us for the better
+                  part of a decade, which gives our families the continuity that young children rely
+                  on.
+                </p>
+                <p>
+                  We hold ourselves to a simple standard: every child should leave at the end of the
+                  day having been listened to, challenged a little, and kept safe.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* 3. Mission, vision, values                                       */}
+        {/* ---------------------------------------------------------------- */}
+        <section aria-labelledby="mvv-heading" className="bg-gray-100 py-20 md:py-32">
+          <div className="mx-auto max-w-6xl px-4 md:px-6 lg:px-8">
+            <h2
+              id="mvv-heading"
+              className="mb-4 text-center text-2xl font-bold text-gray-800 md:text-3xl lg:text-4xl"
+            >
+              What We Stand For
+            </h2>
+            <p className="mx-auto mb-10 max-w-2xl text-center text-base text-gray-600 md:mb-12 md:text-lg">
+              The commitments that shape how we teach, plan and care for every child in our rooms.
+            </p>
+
+            <div className="grid grid-cols-1 gap-6 md:gap-8 lg:grid-cols-3">
+              {MISSION_VISION_VALUES.map((entry) => (
+                <MissionCard
+                  key={entry.title}
+                  icon={entry.icon}
+                  title={entry.title}
+                  content={entry.content}
+                  color={entry.color}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* 4. Educational philosophy                                        */}
+        {/* ---------------------------------------------------------------- */}
+        <section aria-labelledby="philosophy-heading" className="bg-white py-20 md:py-32">
+          <div className="mx-auto max-w-6xl px-4 md:px-6 lg:px-8">
+            <h2
+              id="philosophy-heading"
+              className="mb-4 text-center text-2xl font-bold text-gray-800 md:text-3xl lg:text-4xl"
+            >
+              Our Educational Philosophy
+            </h2>
+            <p className="mx-auto mb-12 max-w-2xl text-center text-base text-gray-600 md:mb-16 md:text-lg">
+              Based on proven developmental psychology
+            </p>
+
+            <div className="space-y-16 md:space-y-20">
+              {PHILOSOPHY.map((entry, index) => (
+                <article
+                  key={entry.title}
+                  className={`grid grid-cols-1 items-center gap-8 lg:grid-cols-2 lg:gap-12 ${
+                    // Alternate which side the image sits on for large screens.
+                    index % 2 === 1 ? 'lg:[&>figure]:order-2' : ''
+                  }`}
+                >
+                  <figure className="m-0">
+                    <div
+                      className={`aspect-3/2 w-full rounded-lg bg-gradient-to-br ${entry.gradient}`}
+                      role="img"
+                      aria-label={entry.title}
+                    />
+                  </figure>
+
+                  <div>
+                    <h3 className="mb-4 text-xl font-semibold text-gray-800 md:text-2xl">
+                      {entry.title}
+                    </h3>
+                    <div className="space-y-4 text-base leading-relaxed text-gray-700">
+                      {entry.paragraphs.map((paragraph) => (
+                        <p key={paragraph.slice(0, 32)}>{paragraph}</p>
+                      ))}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* 5. Team                                                          */}
+        {/* ---------------------------------------------------------------- */}
+        <section aria-labelledby="team-heading" className="bg-gray-100 py-20 md:py-32">
+          <div className="mx-auto max-w-6xl px-4 md:px-6 lg:px-8">
+            <h2
+              id="team-heading"
+              className="mb-4 text-center text-2xl font-bold text-gray-800 md:text-3xl lg:text-4xl"
+            >
+              Meet Our Team
+            </h2>
+            <p className="mx-auto mb-10 max-w-2xl text-center text-base text-gray-600 md:mb-12 md:text-lg">
+              Experienced professionals dedicated to your child&rsquo;s growth
+            </p>
+
+            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:gap-10 lg:grid-cols-3">
+              {TEAM.map((member) => (
+                <TeamMemberCard
+                  key={member.name}
+                  name={member.name}
+                  position={member.position}
+                  bio={member.bio}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* 6. Achievements                                                  */}
+        {/* ---------------------------------------------------------------- */}
+        <section
+          aria-labelledby="impact-heading"
+          className="bg-gradient-to-r from-blue-600 to-red-500 py-20 md:py-32"
+        >
+          <div className="mx-auto max-w-6xl px-4 md:px-6 lg:px-8">
+            <h2
+              id="impact-heading"
+              className="mb-10 text-center text-2xl font-bold text-white md:mb-12 md:text-3xl lg:text-4xl"
+            >
+              Our Impact
+            </h2>
+
+            <div className="grid grid-cols-2 gap-8 md:gap-12 lg:grid-cols-4">
+              {ACHIEVEMENTS.map((achievement) => (
+                <StatCard
+                  key={achievement.label}
+                  number={achievement.number}
+                  label={achievement.label}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* 7. Testimonials                                                  */}
+        {/* ---------------------------------------------------------------- */}
+        <section aria-labelledby="testimonials-heading" className="bg-blue-50 py-16 md:py-24">
+          <div className="mx-auto max-w-6xl px-4 md:px-6 lg:px-8">
+            <h2
+              id="testimonials-heading"
+              className="mb-10 text-center text-2xl font-bold text-gray-800 md:mb-12 md:text-3xl lg:text-4xl"
+            >
+              What Parents Say
+            </h2>
+
+            {/* Mobile and tablet: swipeable carousel. */}
+            <div className="lg:hidden">
+              <Carousel
+                items={TESTIMONIALS}
+                ariaLabel="Parent testimonials"
+                renderItem={(testimonial) => (
+                  <div className="h-full px-1 pb-2">
+                    <TestimonialCard testimonial={testimonial} />
+                  </div>
+                )}
+              />
+            </div>
+
+            {/* Desktop: all four side by side. */}
+            <div className="hidden gap-6 lg:grid lg:grid-cols-4 lg:gap-8">
+              {TESTIMONIALS.map((testimonial) => (
+                <TestimonialCard key={testimonial.author} testimonial={testimonial} />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* 8. Call to action                                                */}
+        {/* ---------------------------------------------------------------- */}
+        <section
+          aria-labelledby="cta-heading"
+          className="bg-gradient-to-r from-red-500 to-orange-500 py-16 md:py-20"
+        >
+          <div className="mx-auto max-w-3xl px-4 text-center md:px-6">
+            <h2 id="cta-heading" className="text-2xl font-bold text-white md:text-3xl lg:text-4xl">
+              Ready to give your child the best start?
+            </h2>
+            <p className="mt-4 text-base text-orange-50 md:text-lg">
+              Register today, or come and see the rooms for yourself before you decide.
+            </p>
+            <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
+              <Button href="/register" variant="primary" size="lg">
+                Register Now
+              </Button>
+              <Button href="/booking" variant="secondary" size="lg">
+                Schedule Tour
+              </Button>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <Footer />
+    </>
+  );
+}

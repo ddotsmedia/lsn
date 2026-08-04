@@ -24,7 +24,7 @@ export interface HeaderProps {
  */
 const NAV_LINKS: readonly NavLink[] = [
   { label: 'Home', href: '/' },
-  { label: 'Nursery', href: '/about' },
+  { label: 'Nursery', href: '/nursery' },
   { label: 'Facilities', href: '/facilities' },
   { label: 'Gallery', href: '/gallery' },
   { label: 'Events', href: '/events' },

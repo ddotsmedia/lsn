@@ -26,10 +26,10 @@ const CONTACT = {
  * nursery page. They resolve to the top of that page until the sections land.
  */
 const PROGRAM_LINKS: readonly FooterLink[] = [
-  { label: 'Infant Care', href: '/about#infant-care' },
-  { label: 'Toddler Program', href: '/about#toddler-program' },
-  { label: 'Preschool', href: '/about#preschool' },
-  { label: 'Pre-K', href: '/about#pre-k' },
+  { label: 'Infant Care', href: '/nursery#infant-care' },
+  { label: 'Toddler Program', href: '/nursery#toddler-program' },
+  { label: 'Preschool', href: '/nursery#preschool' },
+  { label: 'Pre-K', href: '/nursery#pre-k' },
 ];
 
 const QUICK_LINKS: readonly FooterLink[] = [
@@ -40,7 +40,7 @@ const QUICK_LINKS: readonly FooterLink[] = [
 ];
 
 const ABOUT_LINKS: readonly FooterLink[] = [
-  { label: 'Nursery', href: '/about' },
+  { label: 'Nursery', href: '/nursery' },
   { label: 'Contact', href: '/contact' },
   { label: 'Events', href: '/events' },
 ];
