@@ -97,7 +97,7 @@ export function DataTable<T = Record<string, unknown>>({
                 >
                   {columns.map((col) => (
                     <td key={col.key} className={`px-4 py-3 text-zinc-300 ${col.className || ''}`}>
-                      {col.render ? col.render(row) : (row[col.key] as ReactNode) ?? '—'}
+                      {col.render ? col.render(row) : ((row as any)[col.key] as ReactNode) ?? '—'}
                     </td>
                   ))}
                 </tr>
