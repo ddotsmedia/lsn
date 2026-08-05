@@ -17,9 +17,9 @@ services:
       dockerfile: Dockerfile.prod
     environment:
       DATABASE_URL: postgresql://lsn:password@postgres:5432/littlesmarties
-      PORT: 3001
+      PORT: 3011
     ports:
-      - "3001:3001"
+      - "3011:3011"
     depends_on:
       - postgres
 
@@ -28,9 +28,9 @@ services:
       context: ./apps/frontend
       dockerfile: Dockerfile.prod
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXT_PUBLIC_API_URL: http://localhost:3011
     ports:
-      - "3000:3000"
+      - "3010:3000"
 
 volumes:
   postgres_dev:

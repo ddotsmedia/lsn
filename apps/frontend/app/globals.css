@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
-/* Animations used by the shared components (Decorations, Modal). */
 @theme {
   --animate-float: float 6s ease-in-out infinite;
   --animate-fade-in: fade-in 200ms ease-out both;
+  --font-display: var(--font-heading), 'Caveat', 'Comic Sans MS', system-ui, sans-serif;
 
   @keyframes float {
     0%,
@@ -42,6 +42,6 @@ html {
 }
 
 body {
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-body), system-ui, -apple-system, "Segoe UI", sans-serif;
   min-height: 100dvh;
 }

@@ -73,6 +73,55 @@ export function Flower({ className }: DecorationProps) {
   );
 }
 
+/** Faint outline-only flower doodle, used as background texture (not a solid icon). */
+export function FlowerOutline({ className }: DecorationProps) {
+  return (
+    <svg
+      width={70}
+      height={110}
+      viewBox="0 0 70 110"
+      fill="none"
+      aria-hidden="true"
+      focusable="false"
+      className={cx('text-gray-300', className)}
+    >
+      <path d="M35 108V46" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M35 70C28 66 22 68 18 74" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M35 82C42 78 48 80 52 86" stroke="currentColor" strokeWidth="1.5" />
+      <g stroke="currentColor" strokeWidth="1.5">
+        <ellipse cx="35" cy="16" rx="10" ry="14" />
+        <ellipse cx="35" cy="16" rx="10" ry="14" transform="rotate(72 35 16)" />
+        <ellipse cx="35" cy="16" rx="10" ry="14" transform="rotate(144 35 16)" />
+        <ellipse cx="35" cy="16" rx="10" ry="14" transform="rotate(216 35 16)" />
+        <ellipse cx="35" cy="16" rx="10" ry="14" transform="rotate(288 35 16)" />
+      </g>
+      <circle cx="35" cy="16" r="4" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+/** Small hand-drawn paper airplane, used as a scattered accent. */
+export function PaperAirplane({ className }: DecorationProps) {
+  return (
+    <svg
+      width={64}
+      height={64}
+      viewBox="0 0 64 64"
+      fill="none"
+      aria-hidden="true"
+      focusable="false"
+      className={cx('text-purple-400', className)}
+    >
+      <path
+        d="M6 30L58 8L40 58L30 38L6 30Z"
+        fill="currentColor"
+        opacity="0.9"
+      />
+      <path d="M30 38L58 8L18 46" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
+    </svg>
+  );
+}
+
 export function Cloud({ className }: DecorationProps) {
   return (
     <svg
@@ -139,5 +188,47 @@ export function WavyDivider({ className }: DecorationProps) {
         fill="currentColor"
       />
     </svg>
+  );
+}
+
+/**
+ * Scalloped "cloud edge" mask — a row of overlapping semicircle bumps.
+ * Used under the hero photo/banner to create the soft, cut-paper cloud
+ * border seen throughout the brand's illustration style.
+ */
+export function CloudScallop({ className }: DecorationProps) {
+  return (
+    <svg
+      width="100%"
+      height={64}
+      viewBox="0 0 1440 64"
+      preserveAspectRatio="none"
+      fill="none"
+      aria-hidden="true"
+      focusable="false"
+      className={cx('block w-full text-white', className)}
+    >
+      <path
+        d="M0,24 A90,24 0 0,0 180,24 A90,24 0 0,0 360,24 A90,24 0 0,0 540,24 A90,24 0 0,0 720,24 A90,24 0 0,0 900,24 A90,24 0 0,0 1080,24 A90,24 0 0,0 1260,24 A90,24 0 0,0 1440,24 L1440,64 L0,64 Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+export function SpeechBubble({
+  children,
+  className = '',
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cx('relative', className)}>
+      <div className="relative rounded-2xl bg-red-600 px-6 py-4 text-white">
+        <div className="absolute -bottom-3 left-6 h-0 w-0 border-l-8 border-r-0 border-t-8 border-l-transparent border-t-red-600" />
+        {children}
+      </div>
+    </div>
   );
 }

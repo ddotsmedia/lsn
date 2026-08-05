@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(node -p \"require\\('tailwindcss/package.json'\\).version\")",
+      "Bash(npx tsc *)",
+      "Bash(rm -rf .next)",
+      "Bash(npm run *)",
+      "mcp__playwright__browser_resize",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_console_messages",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_press_key",
+      "mcp__playwright__browser_evaluate",
+      "Bash(echo \"typecheck exit=$?\")",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Read(//opt/websites/**)",
+      "Bash(docker --version)",
+      "Bash(gh run *)",
+      "PowerShell($ErrorActionPreference='SilentlyContinue'; $gh = \\(Get-Command gh\\).Source; if \\($gh\\) { & $gh run list --limit 3 } else { \"gh CLI not installed\" })",
+      "mcp__playwright__browser_type",
+      "PowerShell(\"cleared\")",
+      "Bash(netstat -ano)",
+      "PowerShell(foreach \\($p in 18188,16368,26768,32408\\) { $proc = Get-CimInstance Win32_Process -Filter \"ProcessId = $p\" -ErrorAction SilentlyContinue; if \\($proc\\) { \"{0} | {1} | {2}\" -f $p, $proc.Name, $proc.CommandLine.Substring\\(0, [Math]::Min\\(120, $proc.CommandLine.Length\\)\\) } else { \"$p | not found\" } })",
+      "PowerShell(foreach \\($p in 18188,16368,26768\\) { try { Stop-Process -Id $p -Force -ErrorAction Stop; \"killed $p\" } catch { \"could not kill ${p}: $\\($_.Exception.Message\\)\" } }; Start-Sleep -Seconds 2; \"--- remaining on 3000-3004 ---\"; netstat -ano | Select-String \"LISTENING\" | Select-String \":300[0-4]\")",
+      "Bash(break)",
+      "mcp__playwright__browser_fill_form",
+      "mcp__playwright__browser_network_requests",
+      "mcp__playwright__browser_run_code_unsafe"
+    ]
+  }
+}

@@ -165,3 +165,52 @@ export async function logout(db: Pool, req: AuthRequest, res: Response): Promise
     }
   }
 }
+
+
+/**
+ * GET /api/v1/auth/me
+ *
+ * Requires `authenticate` + `resolveAdmin` to have run first (req.userId /
+ * req.isAdmin are set by those). Used by the admin panel to decide whether
+ * the logged-in user may enter /admin and what role/permissions they have.
+ */
+export async function me(db: Pool, req: AuthRequest, res: Response): Promise<void> {
+  try {
+    if (!req.userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const result = await db.query(
+      'SELECT id, email, name, phone, created_at, updated_at FROM users WHERE id = $1',
+      [req.userId]
+    );
+    if (result.rows.length === 0) {
+      res.status(401).json({ error: 'User not found' });
+      return;
+    }
+
+    let role: string | null = null;
+    let permissions: string[] = [];
+    if (req.isAdmin) {
+      const adminRow = await db.query(
+        'SELECT role, permissions FROM admin_users WHERE user_id = $1',
+        [req.userId]
+      );
+      if (adminRow.rows.length > 0) {
+        role = adminRow.rows[0].role;
+        permissions = adminRow.rows[0].permissions || [];
+      }
+    }
+
+    res.json({
+      user: result.rows[0],
+      isAdmin: Boolean(req.isAdmin),
+      role,
+      permissions,
+    });
+  } catch (error) {
+    console.error('me failed', error);
+    res.status(500).json({ error: 'Failed to resolve session' });
+  }
+}
