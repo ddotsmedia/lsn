@@ -27,7 +27,7 @@ interface DataTableProps<T> {
   emptyMessage?: string;
 }
 
-export function DataTable<T extends Record<string, unknown>>({
+export function DataTable<T = Record<string, unknown>>({
   columns,
   data,
   loading,
@@ -89,7 +89,7 @@ export function DataTable<T extends Record<string, unknown>>({
             ) : (
               data.map((row, i) => (
                 <tr
-                  key={(row.id as string) || i}
+                  key={String((row as any)?.id ?? i)}
                   className={`border-b border-zinc-800/30 transition-colors ${
                     onRowClick ? 'cursor-pointer hover:bg-zinc-800/30' : ''
                   }`}

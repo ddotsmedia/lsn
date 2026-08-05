@@ -96,7 +96,7 @@ export default function ActivityLogPage() {
         />
       </div>
 
-      <DataTable
+      <DataTable<Activity>
         columns={columns}
         data={data}
         loading={loading}

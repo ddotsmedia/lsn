@@ -62,7 +62,7 @@ export default function AgeGroupsPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-end"><Button onClick={() => { setEditId(null); setForm(EMPTY); setShowModal(true); }}>+ New Age Group</Button></div>
-      <DataTable columns={columns} data={data as unknown as Record<string, unknown>[]} loading={loading} />
+      <DataTable<AgeGroup> columns={columns} data={data} loading={loading} />
 
       <Modal open={showModal} onClose={() => setShowModal(false)} title={editId ? 'Edit Age Group' : 'New Age Group'}>
         <div className="space-y-4">
