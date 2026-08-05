@@ -19,8 +19,8 @@ if (!fs.existsSync(UPLOAD_DIR)) {
 }
 
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-  filename: (_req, file, cb) => {
+  destination: (_req: any, _file: any, cb: any) => cb(null, UPLOAD_DIR),
+  filename: (_req: any, file: any, cb: any) => {
     const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
     const ext = path.extname(file.originalname);
     cb(null, `${uniqueSuffix}${ext}`);
@@ -30,7 +30,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
-  fileFilter: (_req, file, cb) => {
+  fileFilter: (_req: any, file: any, cb: any) => {
     const allowed = /\.(jpg|jpeg|png|gif|webp|svg|avif)$/i;
     if (allowed.test(path.extname(file.originalname))) {
       cb(null, true);
@@ -329,7 +329,7 @@ async function reorderImages(db: Pool, req: AuthRequest, res: Response): Promise
 // ---------- Bulk upload ----------
 async function bulkUpload(db: Pool, req: AuthRequest, res: Response): Promise<void> {
   try {
-    const files = req.files as Express.Multer.File[] | undefined;
+    const files = req.files as any;
     if (!files || files.length === 0) {
       res.status(400).json({ error: 'No files provided' });
       return;

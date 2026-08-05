@@ -2,6 +2,15 @@ import type { Request, Response, NextFunction } from 'express';
 import type { Pool } from 'pg';
 import { verifyToken } from '../utils/jwt.js';
 
+declare global {
+  namespace Express {
+    interface Request {
+      file?: any;
+      files?: any;
+    }
+  }
+}
+
 export interface AuthRequest extends Request {
   userId?: string;
   isAdmin?: boolean;
