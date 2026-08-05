@@ -10,13 +10,13 @@ export async function logActivity(
   adminUserId: string | undefined,
   action: 'create' | 'update' | 'delete' | 'status_change' | 'invite' | 'upload',
   entityType: string,
-  entityId: string | null,
+  entityId: string | null | undefined,
   details?: Record<string, unknown>
 ): Promise<void> {
   try {
     await db.query(
       'INSERT INTO admin_activity_log (admin_user_id, action, entity_type, entity_id, details) VALUES ($1, $2, $3, $4, $5)',
-      [adminUserId ?? null, action, entityType, entityId, details ? JSON.stringify(details) : null]
+      [adminUserId ?? null, action, entityType, entityId ?? null, details ? JSON.stringify(details) : null]
     );
   } catch (error) {
     console.error('logActivity failed (non-fatal)', error);

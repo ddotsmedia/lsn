@@ -7,9 +7,10 @@ import { createEventsRouter } from './routes/events.js';
 import { createFacilitiesRouter } from './routes/facilities.js';
 import { createRegistrationsRouter } from './routes/registrations.js';
 import { createBookingsRouter } from './routes/bookings.js';
+import { createAdminRouter } from './routes/admin/index.js';
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3011;
 
 const db = new Pool({
   connectionString:
@@ -39,6 +40,7 @@ app.use('/api/v1/events', createEventsRouter(db));
 app.use('/api/v1/facilities', createFacilitiesRouter(db));
 app.use('/api/v1/registrations', createRegistrationsRouter(db));
 app.use('/api/v1/tour-bookings', createBookingsRouter(db));
+app.use('/api/v1/admin', createAdminRouter(db));
 
 app.listen(PORT, () => {
   console.log(`Backend running on port ${PORT}`);
