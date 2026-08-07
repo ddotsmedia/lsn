@@ -1,4 +1,4 @@
-import React from 'react';
+'use client';
 
 export default function WhatsAppButton() {
   const phoneNumber = '971562677747';
