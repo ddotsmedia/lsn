@@ -420,7 +420,7 @@ export function RegistrationForm({ onSuccess, className }: RegistrationFormProps
     setSubmitError(null);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/registrations`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/registrations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

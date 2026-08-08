@@ -49,7 +49,12 @@ services:
       context: ./apps/frontend
       dockerfile: Dockerfile.prod
       args:
-        NEXT_PUBLIC_API_URL: http://127.0.0.1:3011/api/v1
+        # Baked into the client bundle at build time, so it must be the URL a
+        # visitor's browser can reach — not a container-local address. nginx
+        # proxies https://bayrotna.ae/api/v1/ to this backend, so the API is
+        # same-origin and no CORS entry is needed. lib/api.ts expects this value
+        # to already include /api/v1 and appends only the resource path.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://bayrotna.ae/api/v1}
     container_name: lsn-frontend
     depends_on:
       - backend

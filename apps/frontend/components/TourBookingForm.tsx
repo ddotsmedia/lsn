@@ -286,7 +286,7 @@ export function TourBookingForm({ onSuccess, className }: TourBookingFormProps) 
     setSubmitError(null);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/tour-bookings`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tour-bookings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

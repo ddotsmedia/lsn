@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: '◉' },
   { href: '/admin/registrations', label: 'Registrations', icon: '◈' },
   { href: '/admin/bookings', label: 'Tour Bookings', icon: '◇' },
+  { href: '/admin/chatbot', label: 'Chatbot', icon: '◍' },
   { href: '/admin/pages', label: 'Pages', icon: '◻' },
   { href: '/admin/events', label: 'News & Events', icon: '◆' },
   { href: '/admin/gallery', label: 'Gallery', icon: '▣' },

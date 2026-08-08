@@ -19,7 +19,7 @@ export default function Gallery() {
   useEffect(() => {
     async function fetchGallery() {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/gallery`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/gallery`);
         if (!res.ok) throw new Error('Failed to fetch');
         const data = await res.json();
         setImages(Array.isArray(data) ? data : []);

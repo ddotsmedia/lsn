@@ -7,6 +7,7 @@ import { createEventsRouter } from './routes/events.js';
 import { createFacilitiesRouter } from './routes/facilities.js';
 import { createRegistrationsRouter } from './routes/registrations.js';
 import { createBookingsRouter } from './routes/bookings.js';
+import { createChatbotRouter } from './routes/chatbot.js';
 import { createAdminRouter } from './routes/admin/index.js';
 
 const app = express();
@@ -40,6 +41,7 @@ app.use('/api/v1/events', createEventsRouter(db));
 app.use('/api/v1/facilities', createFacilitiesRouter(db));
 app.use('/api/v1/registrations', createRegistrationsRouter(db));
 app.use('/api/v1/tour-bookings', createBookingsRouter(db));
+app.use('/api/v1/chatbot', createChatbotRouter(db));
 app.use('/api/v1/admin', createAdminRouter(db));
 
 app.listen(PORT, () => {

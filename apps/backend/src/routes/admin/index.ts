@@ -8,6 +8,7 @@ import { createAdminPagesRouter } from './pages.js';
 import { createAdminSeoRouter } from './seo.js';
 import { createAdminAnalyticsRouter } from './analytics.js';
 import { createAdminUsersRouter } from './users.js';
+import { createAdminChatbotRouter } from './chatbot.js';
 
 /**
  * Aggregates every admin sub-router under /api/v1/admin.
@@ -24,6 +25,7 @@ export function createAdminRouter(db: Pool): express.Router {
   router.use('/seo', createAdminSeoRouter(db));
   router.use('/analytics', createAdminAnalyticsRouter(db));
   router.use('/users', createAdminUsersRouter(db));
+  router.use('/chatbot', createAdminChatbotRouter(db));
 
   return router;
 }
