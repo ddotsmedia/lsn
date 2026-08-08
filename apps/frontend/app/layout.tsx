@@ -1,3 +1,4 @@
+import React from 'react';
 import type { Metadata } from 'next';
 import { Caveat, Nunito } from 'next/font/google';
 import './globals.css';
@@ -28,6 +29,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${caveat.variable} ${nunito.variable}`}>
       <body className="bg-white text-gray-900">
         {children}
+        {/*
+          Both are client components. The WhatsApp button previously lived
+          inline here with onMouseEnter/onMouseLeave handlers, which this file
+          cannot carry: layout.tsx is a server component and event handlers are
+          not allowed in one. Hover styling now comes from Tailwind instead.
+        */}
         <WhatsAppContact />
         <ChatbotWidget />
       </body>
