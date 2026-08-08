@@ -3,6 +3,7 @@ import type { Response } from 'express';
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import type { AuthRequest } from '../middleware/auth.js';
+import { logMatch } from '../integrations/chatbot-analytics.js';
 import type {
   ChatbotFaq,
   ChatbotMessage,
@@ -51,12 +52,46 @@ const AppointmentSchema = z.object({
  * whichever FAQ happens to list a filler word and answers the wrong question.
  */
 const STOPWORDS = new Set([
-  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'but', 'by', 'can', 'could', 'did', 'do', 'does',
-  'for', 'from', 'get', 'had', 'has', 'have', 'how', 'i', 'if', 'in', 'is', 'it', 'me', 'my',
-  'of', 'on', 'or', 'our', 'please', 'so', 'that', 'the', 'their', 'them', 'then', 'there',
-  'they', 'this', 'to', 'up', 'want', 'was', 'we', 'what', 'which', 'will', 'with', 'would',
-  'you', 'your',
+  'a', 'about', 'an', 'and', 'any', 'are', 'as', 'at', 'be', 'been', 'but', 'by', 'can', 'could',
+  'did', 'do', 'does', 'for', 'from', 'get', 'give', 'had', 'has', 'have', 'her', 'here', 'his',
+  'how', 'i', 'if', 'in', 'into', 'is', 'it', 'its', 'just', 'know', 'like', 'looking', 'many',
+  'may', 'me', 'much', 'my', 'need', 'of', 'on', 'or', 'our', 'please', 'she', 'should', 'so',
+  'some', 'tell', 'than', 'that', 'the', 'their', 'them', 'then', 'there', 'these', 'they',
+  'this', 'to', 'up', 'us', 'want', 'was', 'we', 'were', 'what', 'when', 'where', 'which', 'who',
+  'why', 'will', 'with', 'would', 'you', 'your',
 ]);
+
+/**
+ * Soundex, used only as a fallback so near-misses like "allergys" or "nutricion"
+ * still land. It is far looser than exact matching, so hits score below any
+ * exact hit and short words are excluded — "fee"/"few" collide otherwise.
+ */
+export function soundex(word: string): string {
+  const codes: Record<string, string> = {
+    b: '1', f: '1', p: '1', v: '1',
+    c: '2', g: '2', j: '2', k: '2', q: '2', s: '2', x: '2', z: '2',
+    d: '3', t: '3',
+    l: '4',
+    m: '5', n: '5',
+    r: '6',
+  };
+  const letters = word.toLowerCase().replace(/[^a-z]/g, '');
+  if (!letters) return '';
+
+  const first = letters[0] as string;
+  let result = first.toUpperCase();
+  let previous = codes[first] ?? '';
+
+  for (const char of letters.slice(1)) {
+    const code = codes[char] ?? '';
+    if (code && code !== previous) result += code;
+    if (char !== 'h' && char !== 'w') previous = code;
+    if (result.length === 4) break;
+  }
+  return result.padEnd(4, '0');
+}
+
+const MIN_FUZZY_LENGTH = 5;
 
 /** Lowercases and strips punctuation, keeping letters/digits from any script. */
 export function normalizeText(text: string): string {
@@ -71,6 +106,13 @@ interface FaqMatch {
   faq: ChatbotFaq;
   score: number;
   specificity: number;
+  fuzzy: boolean;
+}
+
+export interface MatchResult {
+  faq: ChatbotFaq;
+  score: number;
+  fuzzy: boolean;
 }
 
 /**
@@ -81,9 +123,15 @@ interface FaqMatch {
  * any one token. Single words must match a whole token — plain `includes` would
  * let "art" match "start" and "eat" match "great".
  */
-function scoreFaq(normalized: string, tokens: Set<string>, faq: ChatbotFaq): FaqMatch {
+function scoreFaq(
+  normalized: string,
+  tokens: Set<string>,
+  soundexTokens: Set<string>,
+  faq: ChatbotFaq
+): FaqMatch {
   let score = 0;
   let specificity = 0;
+  let fuzzy = false;
 
   for (const rawKeyword of faq.keywords.split(',')) {
     const keyword = normalizeText(rawKeyword);
@@ -91,35 +139,47 @@ function scoreFaq(normalized: string, tokens: Set<string>, faq: ChatbotFaq): Faq
 
     if (keyword.includes(' ')) {
       if (normalized.includes(keyword)) {
-        score += 3;
+        score += 6;
         specificity += keyword.length;
       }
       continue;
     }
 
     if (STOPWORDS.has(keyword)) continue;
+
     if (tokens.has(keyword)) {
+      score += 2;
+      specificity += keyword.length;
+    } else if (keyword.length >= MIN_FUZZY_LENGTH && soundexTokens.has(soundex(keyword))) {
       score += 1;
       specificity += keyword.length;
+      fuzzy = true;
     }
   }
 
-  return { faq, score, specificity };
+  return { faq, score, specificity, fuzzy };
 }
 
 /**
- * Returns the best-matching active FAQ, or null when nothing matched.
- * Ties break towards the more specific match (longer matched keywords).
+ * Best-matching active FAQ, or null. Ties break towards the more specific match.
+ * A purely fuzzy match needs a higher score to win, since soundex alone is weak
+ * evidence and a wrong confident answer is worse than handing over to a human.
  */
-export function matchFaq(message: string, faqs: readonly ChatbotFaq[]): ChatbotFaq | null {
+export function matchFaqDetailed(
+  message: string,
+  faqs: readonly ChatbotFaq[]
+): MatchResult | null {
   const normalized = normalizeText(message);
   if (!normalized) return null;
 
-  const tokens = new Set(normalized.split(' '));
+  const tokens = new Set(normalized.split(' ').filter((t) => !STOPWORDS.has(t)));
+  const soundexTokens = new Set(
+    [...tokens].filter((t) => t.length >= MIN_FUZZY_LENGTH).map(soundex)
+  );
 
   let best: FaqMatch | null = null;
   for (const faq of faqs) {
-    const candidate = scoreFaq(normalized, tokens, faq);
+    const candidate = scoreFaq(normalized, tokens, soundexTokens, faq);
     if (candidate.score === 0) continue;
     if (
       best === null ||
@@ -130,7 +190,13 @@ export function matchFaq(message: string, faqs: readonly ChatbotFaq[]): ChatbotF
     }
   }
 
-  return best ? best.faq : null;
+  if (!best) return null;
+  if (best.fuzzy && best.score < 2) return null;
+  return { faq: best.faq, score: best.score, fuzzy: best.fuzzy };
+}
+
+export function matchFaq(message: string, faqs: readonly ChatbotFaq[]): ChatbotFaq | null {
+  return matchFaqDetailed(message, faqs)?.faq ?? null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -278,11 +344,22 @@ async function postMessage(db: Pool, req: AuthRequest, res: Response): Promise<v
     const faqResult = await db.query(
       'SELECT id, question, answer, category, keywords, is_active FROM chatbot_faq WHERE is_active = TRUE ORDER BY id ASC'
     );
-    const match = matchFaq(data.message, faqResult.rows as ChatbotFaq[]);
+    const result = matchFaqDetailed(data.message, faqResult.rows as ChatbotFaq[]);
+    const match = result?.faq ?? null;
 
     const settings = await loadSettings(db);
     const replyText = match ? match.answer : settings.fallback_message;
     const botMessage = await insertMessage(db, conversationId, 'bot', replyText);
+
+    logMatch(db, {
+      conversationId,
+      question: data.message,
+      faqId: match?.id ?? null,
+      category: match?.category ?? null,
+      score: result?.score ?? 0,
+      fuzzy: result?.fuzzy ?? false,
+      escalated: match === null,
+    });
 
     // An unanswered question is the only signal we get that a human is needed.
     // Never downgrade a conversation an admin already escalated or closed.

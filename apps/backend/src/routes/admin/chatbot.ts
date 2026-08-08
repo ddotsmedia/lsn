@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { authenticate, createResolveAdmin, requireAdmin } from '../../middleware/auth.js';
 import type { AuthRequest } from '../../middleware/auth.js';
 import { logActivity } from '../../utils/activityLog.js';
+import { getSummary } from '../../integrations/chatbot-analytics.js';
 import type { ChatbotMessage, ConversationWithMessages } from '../../types/chatbot.js';
 
 const CONVERSATION_STATUSES = ['active', 'escalated', 'closed'] as const;
@@ -210,6 +211,16 @@ async function listAppointmentRequests(db: Pool, req: AuthRequest, res: Response
   }
 }
 
+async function getAnalytics(db: Pool, req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const days = Math.min(365, Math.max(1, Number(req.query.days) || 30));
+    res.json(await getSummary(db, days));
+  } catch (error) {
+    console.error('getAnalytics failed', error);
+    res.status(500).json({ error: 'Failed to fetch analytics' });
+  }
+}
+
 export function createAdminChatbotRouter(db: Pool): express.Router {
   const router = express.Router();
   const resolveAdmin = createResolveAdmin(db);
@@ -225,6 +236,7 @@ export function createAdminChatbotRouter(db: Pool): express.Router {
     replyToConversation(db, req as AuthRequest, res)
   );
   router.get('/appointments', (req, res) => listAppointmentRequests(db, req as AuthRequest, res));
+  router.get('/analytics', (req, res) => getAnalytics(db, req as AuthRequest, res));
 
   return router;
 }

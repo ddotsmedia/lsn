@@ -131,7 +131,7 @@ export function ChatbotWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [visitor, setVisitor] = useState<VisitorDetails>(EMPTY_VISITOR);
-  const [hasIntroduced, setHasIntroduced] = useState(false);
+  const [contactSaved, setContactSaved] = useState(false);
   const [formErrors, setFormErrors] = useState<Partial<VisitorDetails>>({});
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
@@ -177,7 +177,6 @@ export function ChatbotWidget() {
         }
         setConversationId(data.id);
         setMessages(data.messages);
-        setHasIntroduced(true);
         setEscalated(data.status === 'escalated');
       })
       .catch(() => {
@@ -209,7 +208,11 @@ export function ChatbotWidget() {
 
   /* --- actions ------------------------------------------------------------ */
 
-  const startConversation = (event: React.FormEvent<HTMLFormElement>): void => {
+  /**
+   * Contact details are collected only once the bot cannot answer, so a visitor
+   * can ask "what time do you open" without handing over an email first.
+   */
+  const saveContact = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     const errors: Partial<VisitorDetails> = {};
     if (visitor.name.trim().length < 2) errors.name = 'Please tell us your name.';
@@ -218,8 +221,21 @@ export function ChatbotWidget() {
     setFormErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
-    setHasIntroduced(true);
-    window.setTimeout(() => inputRef.current?.focus(), 0);
+    try {
+      await api('/chatbot/message', {
+        method: 'POST',
+        body: JSON.stringify({
+          conversation_id: conversationId ?? undefined,
+          message: '[contact details provided]',
+          visitor_name: visitor.name.trim(),
+          visitor_email: visitor.email.trim(),
+          visitor_phone: visitor.phone.trim() || undefined,
+        }),
+      });
+      setContactSaved(true);
+    } catch {
+      setError('We could not save your details. Please call us on +971 56 267 7747.');
+    }
   };
 
   const sendMessage = useCallback(async () => {
@@ -339,61 +355,7 @@ export function ChatbotWidget() {
             </button>
           </div>
 
-          {!hasIntroduced ? (
-            /* Visitor details */
-            <form onSubmit={startConversation} className="flex-1 overflow-y-auto p-4" noValidate>
-              <p className="mb-4 text-sm text-gray-700">{settings.welcome_message}</p>
-              <p className="mb-4 text-xs text-gray-500">
-                Leave your details so we can reply if a question needs one of our team.
-              </p>
-
-              <label htmlFor="chat-name" className="mb-1 block text-xs font-semibold text-gray-700">
-                Your name <span className="text-red-600">*</span>
-              </label>
-              <input
-                id="chat-name"
-                value={visitor.name}
-                onChange={(e) => setVisitor((v) => ({ ...v, name: e.target.value }))}
-                aria-invalid={formErrors.name ? true : undefined}
-                className="mb-1 w-full rounded-lg border-2 border-gray-300 p-2 text-sm focus:border-blue-800 focus:outline-none"
-              />
-              {formErrors.name && <p className="mb-2 text-xs text-red-600">{formErrors.name}</p>}
-
-              <label htmlFor="chat-email" className="mb-1 mt-3 block text-xs font-semibold text-gray-700">
-                Email <span className="text-red-600">*</span>
-              </label>
-              <input
-                id="chat-email"
-                type="email"
-                autoComplete="email"
-                value={visitor.email}
-                onChange={(e) => setVisitor((v) => ({ ...v, email: e.target.value }))}
-                aria-invalid={formErrors.email ? true : undefined}
-                className="mb-1 w-full rounded-lg border-2 border-gray-300 p-2 text-sm focus:border-blue-800 focus:outline-none"
-              />
-              {formErrors.email && <p className="mb-2 text-xs text-red-600">{formErrors.email}</p>}
-
-              <label htmlFor="chat-phone" className="mb-1 mt-3 block text-xs font-semibold text-gray-700">
-                Phone <span className="font-normal text-gray-500">(optional)</span>
-              </label>
-              <input
-                id="chat-phone"
-                type="tel"
-                autoComplete="tel"
-                value={visitor.phone}
-                onChange={(e) => setVisitor((v) => ({ ...v, phone: e.target.value }))}
-                className="w-full rounded-lg border-2 border-gray-300 p-2 text-sm focus:border-blue-800 focus:outline-none"
-              />
-
-              <button
-                type="submit"
-                className="mt-5 min-h-11 w-full rounded-lg bg-red-600 px-4 font-semibold text-white transition-colors hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
-              >
-                Start chatting
-              </button>
-            </form>
-          ) : (
-            <>
+          <>
               {/* Thread */}
               <div
                 ref={scrollRef}
@@ -415,10 +377,61 @@ export function ChatbotWidget() {
                 {isSending && <TypingDots />}
 
                 {escalated && !isSending && (
-                  <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
-                    Our team has been notified and will reply here. You can also reach us on{' '}
-                    {settings.office_phone}.
-                  </p>
+                  <div className="rounded-lg bg-amber-50 p-3">
+                    <p className="text-xs text-amber-800">
+                      Our team has been notified and will reply here. You can also reach us on{' '}
+                      {settings.office_phone}.
+                    </p>
+
+                    {!contactSaved && (
+                      <form onSubmit={(e) => void saveContact(e)} className="mt-3" noValidate>
+                        <p className="mb-2 text-xs font-semibold text-amber-900">
+                          Leave your details so we can get back to you:
+                        </p>
+                        <input
+                          aria-label="Your name"
+                          placeholder="Your name"
+                          value={visitor.name}
+                          onChange={(e) => setVisitor((v) => ({ ...v, name: e.target.value }))}
+                          aria-invalid={formErrors.name ? true : undefined}
+                          className="mb-1 w-full rounded border border-amber-300 p-2 text-xs focus:border-amber-600 focus:outline-none"
+                        />
+                        {formErrors.name && <p className="mb-1 text-xs text-red-600">{formErrors.name}</p>}
+                        <input
+                          type="email"
+                          autoComplete="email"
+                          aria-label="Your email"
+                          placeholder="Email"
+                          value={visitor.email}
+                          onChange={(e) => setVisitor((v) => ({ ...v, email: e.target.value }))}
+                          aria-invalid={formErrors.email ? true : undefined}
+                          className="mb-1 w-full rounded border border-amber-300 p-2 text-xs focus:border-amber-600 focus:outline-none"
+                        />
+                        {formErrors.email && <p className="mb-1 text-xs text-red-600">{formErrors.email}</p>}
+                        <input
+                          type="tel"
+                          autoComplete="tel"
+                          aria-label="Your phone (optional)"
+                          placeholder="Phone (optional)"
+                          value={visitor.phone}
+                          onChange={(e) => setVisitor((v) => ({ ...v, phone: e.target.value }))}
+                          className="mb-2 w-full rounded border border-amber-300 p-2 text-xs focus:border-amber-600 focus:outline-none"
+                        />
+                        <button
+                          type="submit"
+                          className="min-h-9 w-full rounded bg-amber-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-amber-700"
+                        >
+                          Send my details
+                        </button>
+                      </form>
+                    )}
+
+                    {contactSaved && (
+                      <p className="mt-2 text-xs font-semibold text-green-700">
+                        Thanks — we have your details.
+                      </p>
+                    )}
+                  </div>
                 )}
 
                 {callbackState === 'sent' && (
@@ -472,8 +485,7 @@ export function ChatbotWidget() {
                   </svg>
                 </button>
               </div>
-            </>
-          )}
+          </>
         </div>
       )}
 
