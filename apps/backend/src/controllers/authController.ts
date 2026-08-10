@@ -180,32 +180,22 @@ export async function me(db: Pool, req: AuthRequest, res: Response): Promise<voi
       res.status(401).json({ error: 'Not authenticated' });
       return;
     }
-
     const result = await db.query(
-      'SELECT id, email, name, phone, created_at, updated_at FROM users WHERE id = $1',
+      'SELECT id, email, name, phone, role, is_active, created_at, updated_at FROM users WHERE id = $1',
       [req.userId]
     );
     if (result.rows.length === 0) {
       res.status(401).json({ error: 'User not found' });
       return;
     }
-
-    let role: string | null = null;
-    let permissions: string[] = [];
-    if (req.isAdmin) {
-      const adminRow = await db.query(
-        'SELECT role, permissions FROM admin_users WHERE user_id = $1',
-        [req.userId]
-      );
-      if (adminRow.rows.length > 0) {
-        role = adminRow.rows[0].role;
-        permissions = adminRow.rows[0].permissions || [];
-      }
-    }
-
+    const user = result.rows[0];
+    const role = user.role || null;
+    const permissions = (role === 'admin') ? ['read', 'write', 'delete', 'manage_users'] : [];
+    const isAdmin = role === 'admin';
+    
     res.json({
-      user: result.rows[0],
-      isAdmin: Boolean(req.isAdmin),
+      user: { id: user.id, email: user.email, name: user.name, phone: user.phone, created_at: user.created_at, updated_at: user.updated_at },
+      isAdmin,
       role,
       permissions,
     });
