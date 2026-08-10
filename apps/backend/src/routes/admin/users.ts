@@ -227,14 +227,14 @@ async function getDashboardStats(db: Pool, _req: AuthRequest, res: Response): Pr
         COUNT(*) FILTER (WHERE status = 'cancelled')::int as cancelled,
         COUNT(*) FILTER (WHERE preferred_date >= CURRENT_DATE)::int as upcoming
         FROM tour_bookings`),
-      db.query('SELECT COUNT(*)::int as total FROM news_events'),
+      db.query('SELECT COUNT(*)::int as total FROM news_events WHERE deleted_at IS NULL'),
       db.query(`SELECT COUNT(*)::int as total,
         COUNT(*) FILTER (WHERE status = 'published')::int as published,
         COUNT(*) FILTER (WHERE status = 'draft')::int as draft
         FROM pages`),
       db.query(`SELECT COUNT(*)::int as total_images,
-        (SELECT COUNT(*)::int FROM gallery_categories) as total_categories
-        FROM gallery_images`),
+        (SELECT COUNT(*)::int FROM gallery_categories WHERE deleted_at IS NULL) as total_categories
+        FROM gallery_images WHERE deleted_at IS NULL`),
       db.query(`SELECT al.*, u.name as admin_name
         FROM admin_activity_log al
         LEFT JOIN users u ON al.admin_user_id = u.id

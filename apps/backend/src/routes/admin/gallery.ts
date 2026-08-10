@@ -58,12 +58,14 @@ const ReorderSchema = z.object({
 });
 
 // ---------- Categories ----------
-async function listCategories(db: Pool, _req: AuthRequest, res: Response): Promise<void> {
+async function listCategories(db: Pool, req: AuthRequest, res: Response): Promise<void> {
   try {
+    const showDeleted = req.query.deleted === 'true';
     const result = await db.query(
       `SELECT gc.*, COUNT(gi.id)::int as image_count
        FROM gallery_categories gc
-       LEFT JOIN gallery_images gi ON gi.category_id = gc.id
+       LEFT JOIN gallery_images gi ON gi.category_id = gc.id AND gi.deleted_at IS NULL
+       WHERE gc.deleted_at IS ${showDeleted ? 'NOT NULL' : 'NULL'}
        GROUP BY gc.id
        ORDER BY gc.sort_order ASC, gc.created_at DESC`
     );
@@ -129,13 +131,100 @@ async function updateCategory(db: Pool, req: AuthRequest, res: Response): Promis
 async function deleteCategory(db: Pool, req: AuthRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const result = await db.query('DELETE FROM gallery_categories WHERE id = $1 RETURNING id', [id]);
+    const result = await db.query(
+      `UPDATE gallery_categories SET deleted_at = CURRENT_TIMESTAMP
+       WHERE id = $1 AND deleted_at IS NULL RETURNING *`,
+      [id]
+    );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Category not found' }); return; }
-    await logActivity(db, req.userId, 'delete', 'gallery_category', id);
+
+    // Images in a removed category would otherwise be orphaned on the public
+    // page, so they go with it and come back together on restore.
+    await db.query(
+      `UPDATE gallery_images SET deleted_at = CURRENT_TIMESTAMP
+       WHERE category_id = $1 AND deleted_at IS NULL`,
+      [id]
+    );
+
+    await logActivity(db, req.userId, 'delete', 'gallery_category', id, {
+      oldValues: result.rows[0] as Record<string, unknown>,
+      req,
+    });
     res.status(204).send();
   } catch (error) {
     console.error('deleteCategory failed', error);
     res.status(500).json({ error: 'Failed to delete category' });
+  }
+}
+
+async function restoreCategory(db: Pool, req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const result = await db.query(
+      `UPDATE gallery_categories SET deleted_at = NULL
+       WHERE id = $1 AND deleted_at IS NOT NULL RETURNING *`,
+      [id]
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'No deleted category with that id' });
+      return;
+    }
+    await db.query(
+      'UPDATE gallery_images SET deleted_at = NULL WHERE category_id = $1',
+      [id]
+    );
+    await logActivity(db, req.userId, 'restore', 'gallery_category', id, {
+      newValues: result.rows[0] as Record<string, unknown>,
+      req,
+    });
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('restoreCategory failed', error);
+    res.status(500).json({ error: 'Failed to restore category' });
+  }
+}
+
+/** Everything currently in the recycle bin, for the restore view. */
+async function listDeleted(db: Pool, _req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const images = await db.query(
+      `SELECT gi.*, gc.name AS category_name
+       FROM gallery_images gi
+       LEFT JOIN gallery_categories gc ON gi.category_id = gc.id
+       WHERE gi.deleted_at IS NOT NULL
+       ORDER BY gi.deleted_at DESC LIMIT 200`
+    );
+    const categories = await db.query(
+      `SELECT * FROM gallery_categories WHERE deleted_at IS NOT NULL
+       ORDER BY deleted_at DESC LIMIT 200`
+    );
+    res.json({ images: images.rows, categories: categories.rows });
+  } catch (error) {
+    console.error('listDeleted failed', error);
+    res.status(500).json({ error: 'Failed to fetch deleted items' });
+  }
+}
+
+async function restoreImage(db: Pool, req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const result = await db.query(
+      `UPDATE gallery_images SET deleted_at = NULL
+       WHERE id = $1 AND deleted_at IS NOT NULL RETURNING *`,
+      [id]
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'No deleted image with that id' });
+      return;
+    }
+    await logActivity(db, req.userId, 'restore', 'gallery_image', id, {
+      newValues: result.rows[0] as Record<string, unknown>,
+      req,
+    });
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('restoreImage failed', error);
+    res.status(500).json({ error: 'Failed to restore image' });
   }
 }
 
@@ -175,7 +264,7 @@ async function listImages(db: Pool, req: AuthRequest, res: Response): Promise<vo
     const offset = (page - 1) * limit;
     const categoryId = req.query.categoryId as string | undefined;
 
-    const conditions: string[] = [];
+    const conditions: string[] = ['gi.deleted_at IS NULL'];
     const params: unknown[] = [];
     let paramIdx = 1;
 
@@ -275,22 +364,19 @@ async function updateImage(db: Pool, req: AuthRequest, res: Response): Promise<v
 async function deleteImage(db: Pool, req: AuthRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    // Fetch image URL to delete file
-    const imgResult = await db.query('SELECT image_url FROM gallery_images WHERE id = $1', [id]);
-    if (imgResult.rows.length === 0) { res.status(404).json({ error: 'Image not found' }); return; }
+    // Soft delete: the uploaded file is deliberately left on disk. Unlinking it
+    // here would make a restore produce a row pointing at a missing image.
+    const result = await db.query(
+      `UPDATE gallery_images SET deleted_at = CURRENT_TIMESTAMP
+       WHERE id = $1 AND deleted_at IS NULL RETURNING *`,
+      [id]
+    );
+    if (result.rows.length === 0) { res.status(404).json({ error: 'Image not found' }); return; }
 
-    await db.query('DELETE FROM gallery_images WHERE id = $1', [id]);
-
-    // Best-effort file cleanup
-    const imgPath = (imgResult.rows[0] as { image_url: string }).image_url;
-    if (imgPath.startsWith('/uploads/')) {
-      const fullPath = path.join('.', imgPath);
-      if (fs.existsSync(fullPath)) {
-        fs.unlinkSync(fullPath);
-      }
-    }
-
-    await logActivity(db, req.userId, 'delete', 'gallery_image', id);
+    await logActivity(db, req.userId, 'delete', 'gallery_image', id, {
+      oldValues: result.rows[0] as Record<string, unknown>,
+      req,
+    });
     res.status(204).send();
   } catch (error) {
     console.error('deleteImage failed', error);
@@ -373,9 +459,11 @@ export function createAdminGalleryRouter(db: Pool): express.Router {
 
   // Categories
   router.get('/categories', (req, res) => listCategories(db, req as AuthRequest, res));
+  router.get('/deleted', (req, res) => listDeleted(db, req as AuthRequest, res));
   router.post('/categories', (req, res) => createCategory(db, req as AuthRequest, res));
   router.put('/categories/:id', (req, res) => updateCategory(db, req as AuthRequest, res));
   router.delete('/categories/:id', (req, res) => deleteCategory(db, req as AuthRequest, res));
+  router.post('/categories/:id/restore', (req, res) => restoreCategory(db, req as AuthRequest, res));
   router.post('/categories/reorder', (req, res) => reorderCategories(db, req as AuthRequest, res));
 
   // Images
@@ -383,6 +471,7 @@ export function createAdminGalleryRouter(db: Pool): express.Router {
   router.post('/images', upload.single('image'), (req, res) => uploadImage(db, req as AuthRequest, res));
   router.put('/images/:id', (req, res) => updateImage(db, req as AuthRequest, res));
   router.delete('/images/:id', (req, res) => deleteImage(db, req as AuthRequest, res));
+  router.post('/images/:id/restore', (req, res) => restoreImage(db, req as AuthRequest, res));
   router.post('/images/reorder', (req, res) => reorderImages(db, req as AuthRequest, res));
   router.post('/images/bulk', upload.array('images', 20), (req, res) => bulkUpload(db, req as AuthRequest, res));
 

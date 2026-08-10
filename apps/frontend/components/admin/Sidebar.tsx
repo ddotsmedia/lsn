@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { href: '/admin/analytics', label: 'Analytics', icon: '◫' },
   { href: '/admin/users', label: 'Users & Roles', icon: '◑' },
   { href: '/admin/activity-log', label: 'Activity Log', icon: '◌' },
+  { href: '/admin/recycle-bin', label: 'Recycle Bin', icon: '⧉' },
 ];
 
 export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {

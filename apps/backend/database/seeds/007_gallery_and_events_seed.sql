@@ -1,5 +1,9 @@
 -- Manual seed for gallery & events. Re-runnable: ON CONFLICT DO NOTHING on the
--- unique slug/title indexes added in 007.
+-- unique slug/title indexes.
+--
+-- Requires migrations through 008, which makes those indexes partial
+-- (WHERE deleted_at IS NULL) so a soft-deleted slug can be reused. Run all
+-- migrations before this seed.
 --
 -- Image URLs are picsum placeholders so the grid renders before real photos are
 -- uploaded. Replace them from Admin > Gallery.
@@ -10,7 +14,9 @@ INSERT INTO gallery_categories (name, description, slug, sort_order) VALUES
   ('Activities',   'Art, music, science and everything in between',      'activities',   3),
   ('Celebrations', 'Parties, performances and special days',             'celebrations', 4),
   ('Facilities',   'Kitchen, library, hall and the rooms behind the scenes','facilities',5)
-ON CONFLICT (slug) DO NOTHING;
+-- The predicate is required: 008 makes this unique index partial, and ON
+-- CONFLICT can only infer a partial index when it repeats the same WHERE.
+ON CONFLICT (slug) WHERE deleted_at IS NULL DO NOTHING;
 
 INSERT INTO gallery_images (category_id, image_url, title, description, alt_text, sort_order, is_featured)
 SELECT c.id, v.image_url, v.title, v.description, v.alt_text, v.sort_order, v.is_featured
@@ -45,4 +51,4 @@ INSERT INTO news_events (title, description, event_date, event_time, end_time, l
   ('World Food Day','Families brought a dish from home and the children tasted their way around the world.','2026-05-20','10:00','11:30','Cafeteria','https://picsum.photos/seed/lsn-ev-10/1200/800','Celebration','All age groups',TRUE),
   ('Spring Planting Morning','Every group planted something in the garden beds and took a seedling home.','2026-04-16','09:30','11:00','Outdoor Play Area','https://picsum.photos/seed/lsn-ev-11/1200/800','Learning','All age groups',TRUE),
   ('Community Helpers Day','Visitors from the fire service and a paediatric nurse spent the morning with us.','2026-02-11','09:00','11:00','Outdoor Play Area','https://picsum.photos/seed/lsn-ev-12/1200/800','Learning','All age groups',TRUE)
-ON CONFLICT (title) DO NOTHING;
+ON CONFLICT (title) WHERE deleted_at IS NULL DO NOTHING;

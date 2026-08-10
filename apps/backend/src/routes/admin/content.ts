@@ -46,22 +46,28 @@ async function listEvents(db: Pool, req: AuthRequest, res: Response): Promise<vo
     const offset = (page - 1) * limit;
     const search = req.query.search as string | undefined;
 
-    const conditions: string[] = [];
+    // ?deleted=true shows the soft-deleted rows so they can be restored.
+    const showDeleted = req.query.deleted === 'true';
+    const conditions: string[] = [showDeleted ? 'deleted_at IS NOT NULL' : 'deleted_at IS NULL'];
     const params: unknown[] = [];
     let paramIdx = 1;
 
     if (search) {
-      conditions.push(`(LOWER(title) LIKE $${paramIdx} OR LOWER(content) LIKE $${paramIdx})`);
+      // Searches title/description: the old `content` column no longer exists.
+      conditions.push(
+        `(LOWER(title) LIKE $${paramIdx} OR LOWER(COALESCE(description,'')) LIKE $${paramIdx})`
+      );
       params.push(`%${search.toLowerCase()}%`);
       paramIdx++;
     }
 
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const where = `WHERE ${conditions.join(' AND ')}`;
     const countResult = await db.query(`SELECT COUNT(*) FROM news_events ${where}`, params);
     const total = Number(countResult.rows[0]?.count ?? 0);
 
     const dataResult = await db.query(
-      `SELECT * FROM news_events ${where} ORDER BY published_at DESC
+      `SELECT * FROM news_events ${where}
+       ORDER BY event_date DESC NULLS LAST, created_at DESC
        LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
       [...params, limit, offset]
     );
@@ -137,13 +143,43 @@ async function updateEvent(db: Pool, req: AuthRequest, res: Response): Promise<v
 async function deleteEvent(db: Pool, req: AuthRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const result = await db.query('DELETE FROM news_events WHERE id = $1 RETURNING id', [id]);
+    const result = await db.query(
+      `UPDATE news_events SET deleted_at = CURRENT_TIMESTAMP
+       WHERE id = $1 AND deleted_at IS NULL RETURNING *`,
+      [id]
+    );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Event not found' }); return; }
-    await logActivity(db, req.userId, 'delete', 'news_event', id);
+    await logActivity(db, req.userId, 'delete', 'news_event', id, {
+      oldValues: result.rows[0] as Record<string, unknown>,
+      req,
+    });
     res.status(204).send();
   } catch (error) {
     console.error('deleteEvent failed', error);
     res.status(500).json({ error: 'Failed to delete event' });
+  }
+}
+
+async function restoreEvent(db: Pool, req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const result = await db.query(
+      `UPDATE news_events SET deleted_at = NULL
+       WHERE id = $1 AND deleted_at IS NOT NULL RETURNING *`,
+      [id]
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'No deleted event with that id' });
+      return;
+    }
+    await logActivity(db, req.userId, 'restore', 'news_event', id, {
+      newValues: result.rows[0] as Record<string, unknown>,
+      req,
+    });
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('restoreEvent failed', error);
+    res.status(500).json({ error: 'Failed to restore event' });
   }
 }
 
@@ -353,6 +389,7 @@ export function createAdminContentRouter(db: Pool): express.Router {
   router.post('/events', (req, res) => createEvent(db, req as AuthRequest, res));
   router.put('/events/:id', (req, res) => updateEvent(db, req as AuthRequest, res));
   router.delete('/events/:id', (req, res) => deleteEvent(db, req as AuthRequest, res));
+  router.post('/events/:id/restore', (req, res) => restoreEvent(db, req as AuthRequest, res));
 
   // Facilities
   router.get('/facilities', (req, res) => listFacilities(db, req as AuthRequest, res));

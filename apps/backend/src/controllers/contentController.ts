@@ -41,18 +41,19 @@ export async function getGallery(db: Pool, req: AuthRequest, res: Response): Pro
   try {
     const category = typeof req.query.category === 'string' ? req.query.category : undefined;
     const params: unknown[] = [];
-    let where = '';
+    let filter = '';
 
     if (category && category !== 'all') {
       params.push(category);
-      where = `WHERE gc.slug = $${params.length}`;
+      filter = `AND gc.slug = $${params.length}`;
     }
 
     const result = await db.query(
       `SELECT g.*, gc.name AS category_name, gc.slug AS category_slug
        FROM gallery_images g
-       LEFT JOIN gallery_categories gc ON g.category_id = gc.id
-       ${where}
+       LEFT JOIN gallery_categories gc
+         ON g.category_id = gc.id AND gc.deleted_at IS NULL
+       WHERE g.deleted_at IS NULL ${filter}
        ORDER BY g.is_featured DESC, g.sort_order ASC, g.created_at DESC`,
       params
     );
@@ -73,7 +74,8 @@ export async function getGalleryCategories(
       `SELECT c.id, c.name, c.slug, c.description, c.sort_order,
               COUNT(g.id)::int AS image_count
        FROM gallery_categories c
-       LEFT JOIN gallery_images g ON g.category_id = c.id
+       LEFT JOIN gallery_images g ON g.category_id = c.id AND g.deleted_at IS NULL
+       WHERE c.deleted_at IS NULL
        GROUP BY c.id
        ORDER BY c.sort_order ASC, c.name ASC`
     );
@@ -123,7 +125,10 @@ export async function deleteGalleryImage(
 ): Promise<void> {
   try {
     const { id } = req.params;
-    const result = await db.query('DELETE FROM gallery_images WHERE id = $1', [id]);
+    const result = await db.query(
+      'UPDATE gallery_images SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND deleted_at IS NULL',
+      [id]
+    );
     if (result.rowCount === 0) {
       res.status(404).json({ error: 'Gallery image not found' });
       return;
@@ -143,7 +148,7 @@ export async function deleteGalleryImage(
 export async function getEvents(db: Pool, req: AuthRequest, res: Response): Promise<void> {
   try {
     const scope = typeof req.query.scope === 'string' ? req.query.scope : 'all';
-    let where = 'WHERE is_published = TRUE';
+    let where = 'WHERE is_published = TRUE AND deleted_at IS NULL';
     let order = 'event_date DESC NULLS LAST';
 
     if (scope === 'upcoming') {
@@ -198,7 +203,10 @@ export async function createEvent(db: Pool, req: AuthRequest, res: Response): Pr
 export async function deleteEvent(db: Pool, req: AuthRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const result = await db.query('DELETE FROM news_events WHERE id = $1', [id]);
+    const result = await db.query(
+      'UPDATE news_events SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND deleted_at IS NULL',
+      [id]
+    );
     if (result.rowCount === 0) {
       res.status(404).json({ error: 'Event not found' });
       return;
