@@ -27,27 +27,49 @@ export interface GalleryCategory {
   id: string;
   name: string;
   slug: string;
-  description: string;
+  description?: string | null;
+  sort_order?: number;
   created_at: Date;
 }
 
 export interface GalleryImage {
   id: string;
-  category_id: string;
+  category_id: string | null;
   image_url: string;
   title: string;
   description?: string;
+  alt_text?: string | null;
+  sort_order: number;
+  is_featured: boolean;
+  category_name?: string | null;
+  category_slug?: string | null;
   created_at: Date;
+}
+
+/** GalleryCategory plus the aggregate the public listing returns. */
+export interface GalleryCategoryWithCount {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  sort_order: number;
+  image_count: number;
 }
 
 export interface NewsEvent {
   id: string;
   title: string;
-  slug: string;
-  content: string;
-  image_url?: string;
-  published_at: Date;
+  description?: string | null;
+  event_date: string | null;
+  event_time: string | null;
+  end_time: string | null;
+  location?: string | null;
+  image_url?: string | null;
+  event_type: string;
+  age_groups?: string | null;
+  is_published: boolean;
   created_at: Date;
+  updated_at: Date;
 }
 
 export interface Facility {
