@@ -12,6 +12,7 @@ import { createChatbotRouter } from './routes/chatbot.js';
 import { createPublicContentRouter } from './routes/content.js';
 import { createVideoUploadRouter } from './routes/videoUpload.js';
 import { createAdminRouter } from './routes/admin/index.js';
+import { createAnalyticsTracker } from './middleware/analytics.js';
 
 const app = express();
 const PORT = process.env.PORT || 3011;
@@ -43,6 +44,11 @@ app.use(express.json());
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'backend' });
 });
+
+// Records public page views. Mounted after /health and before the routers so it
+// sees visitor traffic; it skips admin and auth paths itself, and never blocks
+// or fails a request.
+app.use(createAnalyticsTracker(db));
 
 app.use('/api/v1/auth', createAuthRouter(db));
 app.use('/api/v1/gallery', createGalleryRouter(db));

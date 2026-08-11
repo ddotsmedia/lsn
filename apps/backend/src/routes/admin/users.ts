@@ -6,6 +6,7 @@ import { authenticate, createResolveAdmin, requireAdmin } from '../../middleware
 import type { AuthRequest } from '../../middleware/auth.js';
 import { logActivity } from '../../utils/activityLog.js';
 import { hashPassword } from '../../utils/hash.js';
+import { getDashboardStats } from '../../controllers/dashboardController.js';
 
 const InviteSchema = z.object({
   email: z.string().email(),
@@ -220,56 +221,10 @@ async function getActivityLog(db: Pool, req: AuthRequest, res: Response): Promis
 }
 
 // ---------- Dashboard Stats ----------
-async function getDashboardStats(db: Pool, _req: AuthRequest, res: Response): Promise<void> {
-  try {
-    const [registrations, bookings, events, pages, gallery, recentActivity, viewsToday, viewsWeek] = await Promise.all([
-      db.query(`SELECT
-        COUNT(*)::int as total,
-        COUNT(*) FILTER (WHERE status = 'pending')::int as pending,
-        COUNT(*) FILTER (WHERE status = 'approved')::int as approved,
-        COUNT(*) FILTER (WHERE status = 'rejected')::int as rejected,
-        COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '30 days')::int as last_30_days
-        FROM registrations`),
-      db.query(`SELECT
-        COUNT(*)::int as total,
-        COUNT(*) FILTER (WHERE status = 'pending')::int as pending,
-        COUNT(*) FILTER (WHERE status = 'confirmed')::int as confirmed,
-        COUNT(*) FILTER (WHERE status = 'cancelled')::int as cancelled,
-        COUNT(*) FILTER (WHERE preferred_date >= CURRENT_DATE)::int as upcoming
-        FROM tour_bookings`),
-      db.query('SELECT COUNT(*)::int as total FROM news_events WHERE deleted_at IS NULL'),
-      db.query(`SELECT COUNT(*)::int as total,
-        COUNT(*) FILTER (WHERE status = 'published')::int as published,
-        COUNT(*) FILTER (WHERE status = 'draft')::int as draft
-        FROM pages`),
-      db.query(`SELECT COUNT(*)::int as total_images,
-        (SELECT COUNT(*)::int FROM gallery_categories WHERE deleted_at IS NULL) as total_categories
-        FROM gallery_images WHERE deleted_at IS NULL`),
-      db.query(`SELECT al.*, u.name as admin_name
-        FROM admin_activity_log al
-        LEFT JOIN users u ON al.admin_user_id = u.id
-        ORDER BY al.created_at DESC LIMIT 10`),
-      db.query(`SELECT COUNT(*)::int as count FROM page_analytics WHERE created_at >= CURRENT_DATE`),
-      db.query(`SELECT COUNT(*)::int as count FROM page_analytics WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'`),
-    ]);
-
-    res.json({
-      registrations: registrations.rows[0],
-      bookings: bookings.rows[0],
-      events: { total: events.rows[0]?.total ?? 0 },
-      pages: pages.rows[0],
-      gallery: gallery.rows[0],
-      analytics: {
-        viewsToday: viewsToday.rows[0]?.count ?? 0,
-        viewsWeek: viewsWeek.rows[0]?.count ?? 0,
-      },
-      recentActivity: recentActivity.rows,
-    });
-  } catch (error) {
-    console.error('getDashboardStats failed', error);
-    res.status(500).json({ error: 'Failed to fetch dashboard stats' });
-  }
-}
+// The implementation lives in dashboardController so /admin/users/dashboard and
+// /admin/dashboard/stats cannot drift apart. The version that used to be here
+// ran Promise.all over tables that do not exist in production, so one missing
+// relation returned a 500 and the admin home page rendered nothing at all.
 
 export function createAdminUsersRouter(db: Pool): express.Router {
   const router = express.Router();
