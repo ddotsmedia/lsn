@@ -9,8 +9,20 @@ import {
   SearchBar, Button, Modal, FormField, Input, Textarea, Select, Toast, ConfirmDialog,
 } from '../../../components/admin/shared';
 
-/** Mirrors the news_events columns as they exist in the database. */
-interface NewsEvent {
+/* ------------------------------------------------------------------ types */
+
+/** An announcement: a date and a body, nothing else. Table: news. */
+interface NewsItem {
+  id: string;
+  title: string;
+  description: string;
+  published_date: string | null;
+  is_published: boolean;
+  created_at: string;
+}
+
+/** A dated happening with a time, a place and an audience. Table: news_events. */
+interface EventItem {
   id: string;
   title: string;
   description: string | null;
@@ -25,6 +37,8 @@ interface NewsEvent {
   created_at: string;
 }
 
+type Tab = 'news' | 'events';
+
 /** The same set the public events page styles a badge for. */
 const EVENT_TYPES = [
   'General', 'Celebration', 'Learning', 'Workshop',
@@ -37,112 +51,193 @@ const STATUS_OPTIONS = [
   { value: 'draft', label: 'Draft' },
 ];
 
-interface FormState {
+/* ------------------------------------------------------------------ forms */
+
+interface NewsForm {
+  title: string;
+  description: string;
+  published_date: string;
+  is_published: boolean;
+}
+
+interface EventForm {
   title: string;
   description: string;
   event_date: string;
   event_time: string;
   end_time: string;
   location: string;
-  image_url: string;
   event_type: string;
   age_groups: string;
+  image_url: string;
   is_published: boolean;
 }
 
-const EMPTY_FORM: FormState = {
-  title: '', description: '', event_date: '', event_time: '', end_time: '',
-  location: '', image_url: '', event_type: 'General', age_groups: '', is_published: true,
+const EMPTY_NEWS: NewsForm = {
+  title: '', description: '', published_date: '', is_published: true,
 };
 
-type Errors = Partial<Record<keyof FormState, string>>;
+const EMPTY_EVENT: EventForm = {
+  title: '', description: '', event_date: '', event_time: '', end_time: '',
+  location: '', event_type: 'General', age_groups: '', image_url: '', is_published: true,
+};
 
-/**
- * Mirrors the server's rules so mistakes are caught before a round trip. The
- * server still validates — this only saves the user a failed request.
- * Deliberately no future-date rule: this table also holds past events, which
- * are what the public site lists under "News".
- */
-function validate(form: FormState): Errors {
+type Errors = Record<string, string | undefined>;
+
+/** Shared by both forms; the server enforces the same minimums. */
+function validateCommon(title: string, description: string, date: string, dateKey: string): Errors {
   const errors: Errors = {};
+  if (title.trim().length < 3) errors.title = 'Title must be at least 3 characters';
+  else if (title.trim().length > 255) errors.title = 'Title must be 255 characters or fewer';
+  if (description.trim().length < 10) errors.description = 'Description must be at least 10 characters';
+  if (!date) errors[dateKey] = 'Date is required';
+  return errors;
+}
 
-  if (form.title.trim().length < 3) errors.title = 'Title must be at least 3 characters';
-  else if (form.title.trim().length > 255) errors.title = 'Title must be 255 characters or fewer';
+function validateNews(form: NewsForm): Errors {
+  return validateCommon(form.title, form.description, form.published_date, 'published_date');
+}
 
-  if (form.description.trim().length < 10) {
-    errors.description = 'Description must be at least 10 characters';
-  }
-
-  if (!form.event_date) errors.event_date = 'Date is required';
+function validateEvent(form: EventForm): Errors {
+  const errors = validateCommon(form.title, form.description, form.event_date, 'event_date');
 
   if (form.event_time && form.end_time && form.end_time <= form.event_time) {
     errors.end_time = 'End time must be after the start time';
   }
-
   if (form.image_url.trim()) {
-    try {
-      new URL(form.image_url.trim());
-    } catch {
-      errors.image_url = 'Must be a valid URL, e.g. https://example.com/photo.jpg';
-    }
+    try { new URL(form.image_url.trim()); }
+    catch { errors.image_url = 'Must be a valid URL, e.g. https://example.com/photo.jpg'; }
   }
-
   return errors;
 }
 
-export default function EventsPage() {
-  const [data, setData] = useState<NewsEvent[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
-  const [loading, setLoading] = useState(true);
+/** A date column can arrive as YYYY-MM-DD or as a full timestamp. */
+const toDateInput = (v: string | null | undefined) => (v ? v.slice(0, 10) : '');
+const toTimeInput = (v: string | null | undefined) => (v ? v.slice(0, 5) : '');
+
+const formatDate = (v: string | null) =>
+  v ? new Date(`${v.slice(0, 10)}T00:00:00`).toLocaleDateString() : '—';
+
+/* ------------------------------------------------------------- components */
+
+function StatusPill({ published }: { published: boolean }) {
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded-full border ${
+      published
+        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+        : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/30'
+    }`}>
+      {published ? 'Published' : 'Draft'}
+    </span>
+  );
+}
+
+function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+  return (
+    <div className="flex gap-1">
+      <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); onEdit(); }}>Edit</Button>
+      <Button size="sm" variant="danger" onClick={(e) => { e.stopPropagation(); onDelete(); }}>Delete</Button>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------- page */
+
+export default function NewsAndEventsPage() {
+  const [tab, setTab] = useState<Tab>('news');
   const [search, setSearch] = useState('');
+
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [newsPage, setNewsPage] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
+  const [eventsPage, setEventsPage] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
+
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [newsForm, setNewsForm] = useState<NewsForm>(EMPTY_NEWS);
+  const [eventForm, setEventForm] = useState<EventForm>(EMPTY_EVENT);
   const [errors, setErrors] = useState<Errors>({});
-  const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  const fetchData = useCallback(async (page = 1) => {
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; tab: Tab } | null>(null);
+
+  const isNews = tab === 'news';
+
+  /* ---------------------------------------------------------- data loading */
+
+  const fetchData = useCallback(async (which: Tab, page = 1) => {
     setLoading(true);
+    setLoadError(null);
     try {
-      const res = await api<PaginatedResponse<NewsEvent>>('/admin/content/events', {
-        params: { page, limit: 20, search },
-      });
-      setData(res.data);
-      setPagination(res.pagination);
-    } catch { setToast({ message: 'Failed to load events', type: 'error' }); }
-    finally { setLoading(false); }
+      if (which === 'news') {
+        const res = await api<PaginatedResponse<NewsItem>>('/admin/news', {
+          params: { page, limit: 20, search },
+        });
+        setNews(res.data);
+        setNewsPage(res.pagination);
+      } else {
+        const res = await api<PaginatedResponse<EventItem>>('/admin/events', {
+          params: { page, limit: 20, search },
+        });
+        setEvents(res.data);
+        setEventsPage(res.pagination);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load';
+      setLoadError(message);
+      setToast({ message: `Failed to load ${which}`, type: 'error' });
+    } finally {
+      setLoading(false);
+    }
   }, [search]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // Refetches on tab change and on search, so the query applies to whichever
+  // list is showing.
+  useEffect(() => { fetchData(tab, 1); }, [fetchData, tab]);
+
   useEffect(() => {
     if (toast) { const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); }
   }, [toast]);
 
+  /* ---------------------------------------------------------------- modals */
+
   const openCreate = () => {
     setEditId(null);
-    setForm(EMPTY_FORM);
+    setNewsForm(EMPTY_NEWS);
+    setEventForm(EMPTY_EVENT);
     setErrors({});
     setShowModal(true);
   };
 
-  const openEdit = (evt: NewsEvent) => {
-    setEditId(evt.id);
-    setForm({
-      title: evt.title,
-      description: evt.description || '',
-      // A date column arrives as YYYY-MM-DD, but slice defensively in case a
-      // driver hands back a full timestamp — <input type="date"> needs the
-      // bare date or it renders empty.
-      event_date: evt.event_date?.slice(0, 10) || '',
-      event_time: evt.event_time?.slice(0, 5) || '',
-      end_time: evt.end_time?.slice(0, 5) || '',
-      location: evt.location || '',
-      image_url: evt.image_url || '',
-      event_type: evt.event_type || 'General',
-      age_groups: evt.age_groups || '',
-      is_published: evt.is_published !== false,
+  const openEditNews = (item: NewsItem) => {
+    setEditId(item.id);
+    setNewsForm({
+      title: item.title,
+      description: item.description || '',
+      published_date: toDateInput(item.published_date),
+      is_published: item.is_published !== false,
+    });
+    setErrors({});
+    setShowModal(true);
+  };
+
+  const openEditEvent = (item: EventItem) => {
+    setEditId(item.id);
+    setEventForm({
+      title: item.title,
+      description: item.description || '',
+      event_date: toDateInput(item.event_date),
+      event_time: toTimeInput(item.event_time),
+      end_time: toTimeInput(item.end_time),
+      location: item.location || '',
+      event_type: item.event_type || 'General',
+      age_groups: item.age_groups || '',
+      image_url: item.image_url || '',
+      is_published: item.is_published !== false,
     });
     setErrors({});
     setShowModal(true);
@@ -152,50 +247,62 @@ export default function EventsPage() {
     if (saving) return;
     setShowModal(false);
     setEditId(null);
-    setForm(EMPTY_FORM);
     setErrors({});
   };
 
+  /* ----------------------------------------------------------------- save */
+
   const save = async () => {
-    const found = validate(form);
+    const found = isNews ? validateNews(newsForm) : validateEvent(eventForm);
     setErrors(found);
-    if (Object.keys(found).length > 0) {
+    if (Object.values(found).some(Boolean)) {
       setToast({ message: 'Please fix the highlighted fields', type: 'error' });
       return;
     }
 
+    const path = isNews ? '/admin/news' : '/admin/events';
+    const body = isNews
+      ? {
+          title: newsForm.title.trim(),
+          description: newsForm.description.trim(),
+          published_date: newsForm.published_date,
+          is_published: newsForm.is_published,
+        }
+      : {
+          title: eventForm.title.trim(),
+          description: eventForm.description.trim(),
+          event_date: eventForm.event_date,
+          event_time: eventForm.event_time || null,
+          end_time: eventForm.end_time || null,
+          location: eventForm.location.trim() || null,
+          event_type: eventForm.event_type,
+          age_groups: eventForm.age_groups.trim() || null,
+          image_url: eventForm.image_url.trim() || null,
+          is_published: eventForm.is_published,
+        };
+
     setSaving(true);
     try {
-      const body = {
-        title: form.title.trim(),
-        description: form.description.trim(),
-        event_date: form.event_date,
-        event_time: form.event_time || null,
-        end_time: form.end_time || null,
-        location: form.location.trim() || null,
-        image_url: form.image_url.trim() || null,
-        event_type: form.event_type,
-        age_groups: form.age_groups.trim() || null,
-        is_published: form.is_published,
-      };
-
       if (editId) {
-        await api(`/admin/content/events/${editId}`, { method: 'PUT', body: JSON.stringify(body) });
+        await api(`${path}/${editId}`, { method: 'PUT', body: JSON.stringify(body) });
       } else {
-        await api('/admin/content/events', { method: 'POST', body: JSON.stringify(body) });
+        await api(path, { method: 'POST', body: JSON.stringify(body) });
       }
-
-      setToast({ message: editId ? 'News item updated' : 'News item created', type: 'success' });
+      setToast({
+        message: `${isNews ? 'News item' : 'Event'} ${editId ? 'updated' : 'created'}`,
+        type: 'success',
+      });
       setShowModal(false);
       setEditId(null);
-      setForm(EMPTY_FORM);
-      // Back to page 1 after a create: the list is date-ordered, so a new item
-      // will not necessarily be on whichever page is open.
-      fetchData(editId ? pagination.page : 1);
+      setNewsForm(EMPTY_NEWS);
+      setEventForm(EMPTY_EVENT);
+      // Back to page 1 after a create: both lists are date-ordered, so a new
+      // row will not necessarily be on whichever page is open.
+      const current = isNews ? newsPage.page : eventsPage.page;
+      fetchData(tab, editId ? current : 1);
     } catch (err) {
       // Surfaces the server's own message so a rejected field is actionable.
-      const message = err instanceof Error ? err.message : 'Failed to save';
-      setToast({ message, type: 'error' });
+      setToast({ message: err instanceof Error ? err.message : 'Failed to save', type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -203,33 +310,42 @@ export default function EventsPage() {
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
-    try {
-      await api(`/admin/content/events/${confirmDelete}`, { method: 'DELETE' });
-      setToast({ message: 'News item deleted', type: 'success' });
-      fetchData(pagination.page);
-    } catch { setToast({ message: 'Failed to delete', type: 'error' }); }
+    const { id, tab: which } = confirmDelete;
     setConfirmDelete(null);
+    try {
+      await api(`${which === 'news' ? '/admin/news' : '/admin/events'}/${id}`, { method: 'DELETE' });
+      setToast({ message: `${which === 'news' ? 'News item' : 'Event'} deleted`, type: 'success' });
+      fetchData(which, which === 'news' ? newsPage.page : eventsPage.page);
+    } catch (err) {
+      setToast({ message: err instanceof Error ? err.message : 'Failed to delete', type: 'error' });
+    }
   };
 
-  const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
-    setForm((f) => ({ ...f, [key]: value }));
-    // Clear the field's error as soon as it is touched; it is re-checked on save.
+  const setNewsField = <K extends keyof NewsForm>(key: K, value: NewsForm[K]) => {
+    setNewsForm((f) => ({ ...f, [key]: value }));
     setErrors((e) => (e[key] ? { ...e, [key]: undefined } : e));
   };
 
-  const columns: Column<NewsEvent>[] = [
+  const setEventField = <K extends keyof EventForm>(key: K, value: EventForm[K]) => {
+    setEventForm((f) => ({ ...f, [key]: value }));
+    setErrors((e) => (e[key] ? { ...e, [key]: undefined } : e));
+  };
+
+  /* -------------------------------------------------------------- columns */
+
+  const newsColumns: Column<NewsItem>[] = [
+    { key: 'title', header: 'Title', sortable: true, render: (r) => <span className="font-medium">{r.title}</span> },
+    { key: 'published_date', header: 'Date', render: (r) => <span className="text-xs text-zinc-400">{formatDate(r.published_date)}</span> },
+    { key: 'is_published', header: 'Status', render: (r) => <StatusPill published={r.is_published} /> },
     {
-      key: 'title', header: 'Title', sortable: true,
-      render: (r) => <span className="font-medium">{r.title}</span>,
+      key: 'actions', header: '', className: 'w-[150px]',
+      render: (r) => <RowActions onEdit={() => openEditNews(r)} onDelete={() => setConfirmDelete({ id: r.id, tab: 'news' })} />,
     },
-    {
-      key: 'event_date', header: 'Date',
-      render: (r) => (
-        <span className="text-xs text-zinc-400">
-          {r.event_date ? new Date(`${r.event_date.slice(0, 10)}T00:00:00`).toLocaleDateString() : '—'}
-        </span>
-      ),
-    },
+  ];
+
+  const eventColumns: Column<EventItem>[] = [
+    { key: 'title', header: 'Title', sortable: true, render: (r) => <span className="font-medium">{r.title}</span> },
+    { key: 'event_date', header: 'Date', render: (r) => <span className="text-xs text-zinc-400">{formatDate(r.event_date)}</span> },
     {
       key: 'event_type', header: 'Type',
       render: (r) => (
@@ -238,153 +354,223 @@ export default function EventsPage() {
         </span>
       ),
     },
+    { key: 'is_published', header: 'Status', render: (r) => <StatusPill published={r.is_published} /> },
     {
-      key: 'is_published', header: 'Status',
-      render: (r) => (
-        <span className={`text-xs px-2 py-0.5 rounded-full border ${
-          r.is_published
-            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-            : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/30'
-        }`}>
-          {r.is_published ? 'Published' : 'Draft'}
-        </span>
-      ),
-    },
-    {
-      key: 'actions', header: '', className: 'w-[120px]',
-      render: (r) => (
-        <div className="flex gap-1">
-          <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); openEdit(r); }}>Edit</Button>
-          <Button size="sm" variant="danger" onClick={(e) => { e.stopPropagation(); setConfirmDelete(r.id); }}>×</Button>
-        </div>
-      ),
+      key: 'actions', header: '', className: 'w-[150px]',
+      render: (r) => <RowActions onEdit={() => openEditEvent(r)} onDelete={() => setConfirmDelete({ id: r.id, tab: 'events' })} />,
     },
   ];
 
+  const TABS: { key: Tab; label: string; count: number }[] = [
+    { key: 'news', label: 'News', count: newsPage.total },
+    { key: 'events', label: 'Events', count: eventsPage.total },
+  ];
+
+  /* --------------------------------------------------------------- render */
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="w-full sm:max-w-xs">
-          <SearchBar value={search} onChange={setSearch} placeholder="Search news & events..." />
-        </div>
-        <Button onClick={openCreate} className="w-full sm:w-auto shrink-0">+ Add News</Button>
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-zinc-800" role="tablist" aria-label="Content type">
+        {TABS.map((t) => {
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              role="tab"
+              aria-selected={active}
+              onClick={() => setTab(t.key)}
+              className={`relative px-5 py-3 text-sm font-medium transition-colors duration-200 border-b-2 -mb-px focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 rounded-t-lg ${
+                active
+                  ? 'border-emerald-500 text-emerald-400'
+                  : 'border-transparent text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
+              }`}
+            >
+              {t.label}
+              {t.count > 0 && (
+                <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full transition-colors ${
+                  active ? 'bg-emerald-500/15 text-emerald-400' : 'bg-zinc-800 text-zinc-500'
+                }`}>
+                  {t.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      <DataTable
-        columns={columns}
-        data={data}
-        loading={loading}
-        pagination={pagination}
-        onPageChange={(p) => fetchData(p)}
-        emptyMessage="No news or events yet. Use “+ Add News” to create the first one."
-      />
+      {/* Search + add */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="w-full sm:max-w-xs">
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder={isNews ? 'Search news...' : 'Search events...'}
+          />
+        </div>
+        <Button onClick={openCreate} className="w-full sm:w-auto shrink-0">
+          {isNews ? '+ Add News' : '+ Add Event'}
+        </Button>
+      </div>
 
+      {loadError && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          {loadError}{' '}
+          <button onClick={() => fetchData(tab, 1)} className="underline hover:text-red-300">
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Only the active tab's table is mounted, so the two never disagree. */}
+      <div key={tab} className="animate-in fade-in duration-200">
+        {isNews ? (
+          <DataTable
+            columns={newsColumns}
+            data={news}
+            loading={loading}
+            pagination={newsPage}
+            onPageChange={(p) => fetchData('news', p)}
+            emptyMessage={search ? 'No news matches that search.' : 'No news yet. Use “+ Add News” to publish the first item.'}
+          />
+        ) : (
+          <DataTable
+            columns={eventColumns}
+            data={events}
+            loading={loading}
+            pagination={eventsPage}
+            onPageChange={(p) => fetchData('events', p)}
+            emptyMessage={search ? 'No events match that search.' : 'No events yet. Use “+ Add Event” to create one.'}
+          />
+        )}
+      </div>
+
+      {/* Create / edit */}
       <Modal
         open={showModal}
         onClose={closeModal}
-        title={editId ? 'Edit News Item' : 'Add News'}
-        maxWidth="max-w-2xl"
+        title={`${editId ? 'Edit' : 'Add'} ${isNews ? 'News' : 'Event'}`}
+        maxWidth={isNews ? 'max-w-xl' : 'max-w-2xl'}
       >
         <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-          <FormField label="Title *" error={errors.title}>
-            <Input
-              value={form.title}
-              onChange={(e) => setField('title', e.target.value)}
-              placeholder="End of Year Celebration"
-              maxLength={255}
-            />
-          </FormField>
+          {isNews ? (
+            <>
+              <FormField label="Title *" error={errors.title}>
+                <Input
+                  value={newsForm.title}
+                  onChange={(e) => setNewsField('title', e.target.value)}
+                  placeholder="New playground opens"
+                  maxLength={255}
+                />
+              </FormField>
 
-          <FormField label="Description *" error={errors.description}>
-            <Textarea
-              value={form.description}
-              onChange={(e) => setField('description', e.target.value)}
-              rows={5}
-              placeholder="What happened, or what is planned?"
-            />
-          </FormField>
+              <FormField label="Description *" error={errors.description}>
+                <Textarea
+                  value={newsForm.description}
+                  onChange={(e) => setNewsField('description', e.target.value)}
+                  rows={7}
+                  placeholder="What would you like parents to know?"
+                />
+              </FormField>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <FormField label="Date *" error={errors.event_date}>
-              <Input
-                type="date"
-                value={form.event_date}
-                onChange={(e) => setField('event_date', e.target.value)}
-              />
-            </FormField>
-            <FormField label="Start Time" error={errors.event_time}>
-              <Input
-                type="time"
-                value={form.event_time}
-                onChange={(e) => setField('event_time', e.target.value)}
-              />
-            </FormField>
-            <FormField label="End Time" error={errors.end_time}>
-              <Input
-                type="time"
-                value={form.end_time}
-                onChange={(e) => setField('end_time', e.target.value)}
-              />
-            </FormField>
-          </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField label="Date *" error={errors.published_date}>
+                  <Input
+                    type="date"
+                    value={newsForm.published_date}
+                    onChange={(e) => setNewsField('published_date', e.target.value)}
+                  />
+                </FormField>
+                <FormField label="Status">
+                  <Select
+                    value={newsForm.is_published ? 'published' : 'draft'}
+                    onChange={(e) => setNewsField('is_published', e.target.value === 'published')}
+                    options={STATUS_OPTIONS}
+                  />
+                </FormField>
+              </div>
+            </>
+          ) : (
+            <>
+              <FormField label="Title *" error={errors.title}>
+                <Input
+                  value={eventForm.title}
+                  onChange={(e) => setEventField('title', e.target.value)}
+                  placeholder="End of Year Celebration"
+                  maxLength={255}
+                />
+              </FormField>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField label="Category">
-              <Select
-                value={form.event_type}
-                onChange={(e) => setField('event_type', e.target.value)}
-                options={TYPE_OPTIONS}
-              />
-            </FormField>
-            <FormField label="Status">
-              <Select
-                value={form.is_published ? 'published' : 'draft'}
-                onChange={(e) => setField('is_published', e.target.value === 'published')}
-                options={STATUS_OPTIONS}
-              />
-            </FormField>
-          </div>
+              <FormField label="Description *" error={errors.description}>
+                <Textarea
+                  value={eventForm.description}
+                  onChange={(e) => setEventField('description', e.target.value)}
+                  rows={5}
+                  placeholder="What is planned?"
+                />
+              </FormField>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField label="Location">
-              <Input
-                value={form.location}
-                onChange={(e) => setField('location', e.target.value)}
-                placeholder="Main Hall"
-                maxLength={255}
-              />
-            </FormField>
-            <FormField label="Age Groups">
-              <Input
-                value={form.age_groups}
-                onChange={(e) => setField('age_groups', e.target.value)}
-                placeholder="All ages"
-                maxLength={255}
-              />
-            </FormField>
-          </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <FormField label="Date *" error={errors.event_date}>
+                  <Input type="date" value={eventForm.event_date} onChange={(e) => setEventField('event_date', e.target.value)} />
+                </FormField>
+                <FormField label="Start Time" error={errors.event_time}>
+                  <Input type="time" value={eventForm.event_time} onChange={(e) => setEventField('event_time', e.target.value)} />
+                </FormField>
+                <FormField label="End Time" error={errors.end_time}>
+                  <Input type="time" value={eventForm.end_time} onChange={(e) => setEventField('end_time', e.target.value)} />
+                </FormField>
+              </div>
 
-          <FormField label="Image URL" error={errors.image_url}>
-            <Input
-              value={form.image_url}
-              onChange={(e) => setField('image_url', e.target.value)}
-              placeholder="https://..."
-            />
-          </FormField>
-          {form.image_url.trim() && !errors.image_url && (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={form.image_url.trim()}
-              alt=""
-              className="h-28 w-full rounded-lg border border-zinc-800 object-cover"
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-            />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField label="Category">
+                  <Select
+                    value={eventForm.event_type}
+                    onChange={(e) => setEventField('event_type', e.target.value)}
+                    options={TYPE_OPTIONS}
+                  />
+                </FormField>
+                <FormField label="Status">
+                  <Select
+                    value={eventForm.is_published ? 'published' : 'draft'}
+                    onChange={(e) => setEventField('is_published', e.target.value === 'published')}
+                    options={STATUS_OPTIONS}
+                  />
+                </FormField>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField label="Location">
+                  <Input value={eventForm.location} onChange={(e) => setEventField('location', e.target.value)} placeholder="Main Hall" maxLength={255} />
+                </FormField>
+                <FormField label="Age Groups">
+                  <Input value={eventForm.age_groups} onChange={(e) => setEventField('age_groups', e.target.value)} placeholder="All ages" maxLength={255} />
+                </FormField>
+              </div>
+
+              <FormField label="Image URL" error={errors.image_url}>
+                <Input value={eventForm.image_url} onChange={(e) => setEventField('image_url', e.target.value)} placeholder="https://..." />
+              </FormField>
+              {eventForm.image_url.trim() && !errors.image_url && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={eventForm.image_url.trim()}
+                  alt=""
+                  className="h-28 w-full rounded-lg border border-zinc-800 object-cover"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+              )}
+            </>
           )}
 
           <div className="flex justify-end gap-2 border-t border-zinc-800/50 pt-4">
             <Button variant="secondary" onClick={closeModal} disabled={saving}>Cancel</Button>
             <Button onClick={save} disabled={saving}>
-              {saving ? 'Saving…' : editId ? 'Save Changes' : 'Create News'}
+              {saving
+                ? 'Saving…'
+                : editId
+                  ? 'Save Changes'
+                  : isNews ? 'Create News' : 'Create Event'}
             </Button>
           </div>
         </div>
@@ -394,7 +580,7 @@ export default function EventsPage() {
         open={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}
         onConfirm={handleDelete}
-        title="Delete News Item"
+        title={`Delete ${confirmDelete?.tab === 'news' ? 'News Item' : 'Event'}`}
         message="This moves the item to the recycle bin, where it can be restored."
         confirmLabel="Delete"
         destructive

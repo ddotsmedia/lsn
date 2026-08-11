@@ -415,6 +415,27 @@ async function deleteAgeGroup(db: Pool, req: AuthRequest, res: Response): Promis
 
 // ======================== Router ========================
 
+/**
+ * The event routes on their own, so they can be mounted at /admin/events as
+ * well as under /admin/content. The admin UI uses /admin/events; the recycle
+ * bin still calls /admin/content/events, so both stay live.
+ */
+export function createAdminEventsRouter(db: Pool): express.Router {
+  const router = express.Router();
+  const resolveAdmin = createResolveAdmin(db);
+
+  router.use(authenticate, resolveAdmin, requireAdmin);
+
+  router.get('/', (req, res) => listEvents(db, req as AuthRequest, res));
+  router.get('/:id', (req, res) => getEvent(db, req as AuthRequest, res));
+  router.post('/', (req, res) => createEvent(db, req as AuthRequest, res));
+  router.put('/:id', (req, res) => updateEvent(db, req as AuthRequest, res));
+  router.delete('/:id', (req, res) => deleteEvent(db, req as AuthRequest, res));
+  router.post('/:id/restore', (req, res) => restoreEvent(db, req as AuthRequest, res));
+
+  return router;
+}
+
 export function createAdminContentRouter(db: Pool): express.Router {
   const router = express.Router();
   const resolveAdmin = createResolveAdmin(db);

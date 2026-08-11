@@ -19,6 +19,14 @@ interface ApiEvent {
   age_groups?: string | null;
 }
 
+/** A news item: an announcement with a date and a body, no time or place. */
+interface ApiNews {
+  id: string;
+  title: string;
+  description: string;
+  published_date: string | null;
+}
+
 const API = process.env.NEXT_PUBLIC_API_URL;
 
 const TYPE_STYLES: Record<string, string> = {
@@ -130,6 +138,34 @@ function EventCard({ event, past, onOpen }: { event: ApiEvent; past: boolean; on
   );
 }
 
+/**
+ * News has no image, time or venue, so it gets a text-led card rather than the
+ * event card with its photo and date badge.
+ */
+function NewsCard({ item, onOpen }: { item: ApiNews; onOpen: () => void }) {
+  return (
+    <article
+      onClick={onOpen}
+      className="flex h-full cursor-pointer flex-col rounded-lg bg-white p-5 shadow-md transition-all duration-200 hover:shadow-lg focus-within:ring-2 focus-within:ring-blue-800 md:p-6 md:hover:scale-[1.02]"
+    >
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-red-600">
+        {formatFull(item.published_date)}
+      </p>
+      <h3 className="mb-2 text-lg font-bold text-gray-800 md:text-xl">{item.title}</h3>
+      <p className="line-clamp-4 flex-1 text-base leading-relaxed text-gray-700">
+        {item.description}
+      </p>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onOpen(); }}
+        className="mt-4 self-start text-sm font-semibold text-red-600 underline hover:text-red-700"
+      >
+        Read more
+      </button>
+    </article>
+  );
+}
+
 function EventGrid({
   events,
   past,
@@ -150,22 +186,24 @@ function EventGrid({
 
 export default function EventsPage() {
   const [upcoming, setUpcoming] = useState<ApiEvent[]>([]);
-  const [past, setPast] = useState<ApiEvent[]>([]);
+  const [news, setNews] = useState<ApiNews[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [selected, setSelected] = useState<ApiEvent | null>(null);
-  const [isPastSelected, setIsPastSelected] = useState(false);
+  const [selectedNews, setSelectedNews] = useState<ApiNews | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(false);
     try {
-      const [u, p] = await Promise.all([
+      // News is its own content type now, managed on the News tab of the admin
+      // panel. This section used to show past events instead.
+      const [u, n] = await Promise.all([
         fetch(`${API}/events?scope=upcoming`).then((r) => (r.ok ? r.json() : Promise.reject())),
-        fetch(`${API}/events?scope=past`).then((r) => (r.ok ? r.json() : Promise.reject())),
+        fetch(`${API}/news`).then((r) => (r.ok ? r.json() : Promise.reject())),
       ]);
       setUpcoming(Array.isArray(u) ? u : []);
-      setPast(Array.isArray(p) ? p : []);
+      setNews(Array.isArray(n) ? n : []);
     } catch {
       setError(true);
     } finally {
@@ -177,10 +215,7 @@ export default function EventsPage() {
     void load();
   }, [load]);
 
-  const open = (e: ApiEvent, wasPast: boolean): void => {
-    setSelected(e);
-    setIsPastSelected(wasPast);
-  };
+  const open = (e: ApiEvent): void => setSelected(e);
 
   return (
     <>
@@ -240,21 +275,25 @@ export default function EventsPage() {
                     Nothing scheduled right now — check back soon.
                   </p>
                 ) : (
-                  <EventGrid events={upcoming} past={false} onOpen={(e) => open(e, false)} />
+                  <EventGrid events={upcoming} past={false} onOpen={open} />
                 )}
               </div>
             </section>
 
-            {past.length > 0 && (
-              <section aria-labelledby="past-heading" className="bg-gray-100 py-12 md:py-20">
+            {news.length > 0 && (
+              <section aria-labelledby="news-heading" className="bg-gray-100 py-12 md:py-20">
                 <div className="mx-auto max-w-6xl px-4 md:px-6">
                   <h2
-                    id="past-heading"
+                    id="news-heading"
                     className="mb-8 text-center text-2xl font-bold text-gray-800 md:text-3xl lg:text-4xl"
                   >
                     News
                   </h2>
-                  <EventGrid events={past} past onOpen={(e) => open(e, true)} />
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {news.map((item) => (
+                      <NewsCard key={item.id} item={item} onOpen={() => setSelectedNews(item)} />
+                    ))}
+                  </div>
                 </div>
               </section>
             )}
@@ -276,9 +315,7 @@ export default function EventsPage() {
               <img
                 src={selected.image_url}
                 alt={selected.title}
-                className={`mb-5 aspect-3/2 w-full rounded-lg object-cover ${
-                  isPastSelected ? 'grayscale' : ''
-                }`}
+                className="mb-5 aspect-3/2 w-full rounded-lg object-cover"
               />
             )}
 
@@ -316,13 +353,31 @@ export default function EventsPage() {
               <p className="mt-5 text-base leading-relaxed text-gray-700">{selected.description}</p>
             )}
 
-            {!isPastSelected && (
-              <div className="mt-8 border-t border-gray-100 pt-5">
-                <Button href="/booking" variant="primary" size="lg">
-                  Book a Visit
-                </Button>
-              </div>
-            )}
+            <div className="mt-8 border-t border-gray-100 pt-5">
+              <Button href="/booking" variant="primary" size="lg">
+                Book a Visit
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={selectedNews !== null}
+        onClose={() => setSelectedNews(null)}
+        title={selectedNews?.title ?? ''}
+        size="lg"
+      >
+        {selectedNews && (
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-red-600">
+              {formatFull(selectedNews.published_date)}
+            </p>
+            {/* whitespace-pre-line so paragraph breaks typed in the admin
+                textarea survive to the page. */}
+            <p className="mt-4 whitespace-pre-line text-base leading-relaxed text-gray-700">
+              {selectedNews.description}
+            </p>
           </div>
         )}
       </Modal>
