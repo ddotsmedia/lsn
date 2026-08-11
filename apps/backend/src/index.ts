@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { Pool } from 'pg';
+import { v2 as cloudinary } from 'cloudinary';
 import { createAuthRouter } from './routes/auth.js';
 import { createGalleryRouter } from './routes/gallery.js';
 import { createEventsRouter } from './routes/events.js';
@@ -9,10 +10,17 @@ import { createRegistrationsRouter } from './routes/registrations.js';
 import { createBookingsRouter } from './routes/bookings.js';
 import { createChatbotRouter } from './routes/chatbot.js';
 import { createPublicContentRouter } from './routes/content.js';
+import { createVideoUploadRouter } from './routes/videoUpload.js';
 import { createAdminRouter } from './routes/admin/index.js';
 
 const app = express();
 const PORT = process.env.PORT || 3011;
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const db = new Pool({
   connectionString:
@@ -43,6 +51,7 @@ app.use('/api/v1/facilities', createFacilitiesRouter(db));
 app.use('/api/v1/registrations', createRegistrationsRouter(db));
 app.use('/api/v1/tour-bookings', createBookingsRouter(db));
 app.use('/api/v1/chatbot', createChatbotRouter(db));
+app.use('/api/v1/videos', createVideoUploadRouter(db));
 app.use('/api/v1', createPublicContentRouter(db));
 app.use('/api/v1/admin', createAdminRouter(db));
 
