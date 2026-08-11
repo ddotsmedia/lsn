@@ -252,7 +252,7 @@ export default function EventsPage() {
                     id="past-heading"
                     className="mb-8 text-center text-2xl font-bold text-gray-800 md:text-3xl lg:text-4xl"
                   >
-                    Past Events
+                    News
                   </h2>
                   <EventGrid events={past} past onOpen={(e) => open(e, true)} />
                 </div>
