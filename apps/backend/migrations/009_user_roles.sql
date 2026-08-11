@@ -29,24 +29,41 @@ ALTER TABLE users ALTER COLUMN role SET NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role) WHERE role <> 'user';
 
--- admin_users.user_id only had a plain index, never a unique one. The grant and
--- role-update handlers both run
---   INSERT INTO admin_users ... ON CONFLICT (user_id) DO UPDATE
--- which needs a unique constraint to infer, so those calls errored. Deduplicate
--- (keep the newest row per user) and add the unique index.
-DELETE FROM admin_users a
-USING admin_users b
-WHERE a.user_id = b.user_id
-  AND (a.created_at, a.id) < (b.created_at, b.id);
+-- logActivity writes admin_user_id and details. The live admin_activity_log was
+-- created with admin_id and no details column, so every audit write failed —
+-- silently, because logActivity swallows its own errors by design. Add the
+-- columns it expects. No FK: admin_id points at admin_users(id) here but at
+-- users(id) in 002, and the two tables differ between environments.
+ALTER TABLE admin_activity_log ADD COLUMN IF NOT EXISTS admin_user_id UUID;
+ALTER TABLE admin_activity_log ADD COLUMN IF NOT EXISTS details JSONB;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_users_user_id_unique ON admin_users(user_id);
+CREATE INDEX IF NOT EXISTS idx_admin_activity_log_admin_user
+  ON admin_activity_log(admin_user_id);
 
--- admin_users is kept: it still holds the permissions list and the Users &
--- Roles screen reads it. It is no longer what decides isAdmin.
--- Backfill it from users.role so the two do not disagree on who is an admin.
-INSERT INTO admin_users (user_id, role, permissions)
-SELECT u.id, 'admin', '{}'::text[]
-FROM users u
-WHERE u.role = 'admin'
-  AND NOT EXISTS (SELECT 1 FROM admin_users au WHERE au.user_id = u.id)
-ON CONFLICT (user_id) DO NOTHING;
+-- The rest of this file only applies where admin_users is the join table 002
+-- defines. The live database has an unrelated admin_users (standalone accounts
+-- with email/password_hash and no user_id), so it is skipped there.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_name = 'admin_users' AND column_name = 'user_id') THEN
+
+    -- user_id only ever had a plain index, but the grant and role-update
+    -- handlers run ON CONFLICT (user_id) DO UPDATE, which needs a unique
+    -- constraint to infer — so those calls errored. Deduplicate, then add it.
+    DELETE FROM admin_users a USING admin_users b
+    WHERE a.user_id = b.user_id AND (a.created_at, a.id) < (b.created_at, b.id);
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_users_user_id_unique
+      ON admin_users(user_id);
+
+    -- Keep the two in step on who is an admin. admin_users still holds the
+    -- permissions list; it just no longer decides isAdmin.
+    INSERT INTO admin_users (user_id, role, permissions)
+    SELECT u.id, 'admin', '{}'::text[]
+    FROM users u
+    WHERE u.role = 'admin'
+      AND NOT EXISTS (SELECT 1 FROM admin_users au WHERE au.user_id = u.id)
+    ON CONFLICT (user_id) DO NOTHING;
+  END IF;
+END $$;
