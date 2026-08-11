@@ -47,3 +47,6 @@ LittleSmarties-master/
 littlesmarties/
 docker-compose.yml.bak
 docker-compose.yml.save
+
+# Playwright MCP session artifacts
+.playwright-mcp/
