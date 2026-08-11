@@ -18,10 +18,19 @@ ALTER TABLE users ALTER COLUMN role SET DEFAULT 'user';
 -- Existing rows: keep anyone already recorded in admin_users as an admin, and
 -- keep the accounts the live default already made admin. Everyone else becomes
 -- a plain user.
-UPDATE users u
-SET role = 'admin'
-WHERE u.role IS NULL
-  AND EXISTS (SELECT 1 FROM admin_users au WHERE au.user_id = u.id);
+-- Guarded for the same reason as the block lower down: the live admin_users has
+-- no user_id, and an unguarded reference aborts the whole migration here,
+-- before anything below it runs.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_name = 'admin_users' AND column_name = 'user_id') THEN
+    UPDATE users u
+    SET role = 'admin'
+    WHERE u.role IS NULL
+      AND EXISTS (SELECT 1 FROM admin_users au WHERE au.user_id = u.id);
+  END IF;
+END $$;
 
 UPDATE users SET role = 'user' WHERE role IS NULL;
 
