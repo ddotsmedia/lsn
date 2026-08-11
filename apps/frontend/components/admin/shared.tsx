@@ -223,6 +223,26 @@ export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
   );
 }
 
+/**
+ * Form-field dropdown. Unlike FilterSelect it has no injected "All" option,
+ * because a form field is choosing a value rather than narrowing a list.
+ */
+export function Select({
+  options,
+  ...props
+}: { options: { value: string; label: string }[] } & React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      {...props}
+      className={`w-full bg-[#0c0c14] border border-zinc-800 rounded-lg px-4 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500/50 transition-colors cursor-pointer ${props.className || ''}`}
+    >
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>{opt.label}</option>
+      ))}
+    </select>
+  );
+}
+
 export function Button({
   children,
   variant = 'primary',

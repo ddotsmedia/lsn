@@ -7,15 +7,37 @@ import type { AuthRequest } from '../../middleware/auth.js';
 import { logActivity } from '../../utils/activityLog.js';
 
 // ---------- Schemas ----------
+
+/** '' from an untouched form field means "not set", not a value to store. */
+const blankToNull = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? null : v);
+const optionalText = (max: number) =>
+  z.preprocess(blankToNull, z.string().trim().max(max).nullable().optional());
+
+/**
+ * Matches news_events as it actually exists: description/event_date/event_type,
+ * not the slug/content/published_at shape of migration 001. The previous schema
+ * here described columns the table does not have, so every create and update
+ * failed with `column "slug" does not exist`.
+ */
 const NewsEventSchema = z.object({
-  title: z.string().min(1).max(255),
-  slug: z.string().min(1).max(255),
-  content: z.string().min(1),
-  image_url: z.string().url().optional().nullable(),
-  published_at: z.string().optional().nullable(),
-  meta_title: z.string().max(255).optional().nullable(),
-  meta_description: z.string().optional().nullable(),
-  meta_keywords: z.string().optional().nullable(),
+  title: z.string().trim().min(3, 'Title must be at least 3 characters').max(255),
+  description: z.string().trim().min(10, 'Description must be at least 10 characters'),
+  // Any date is allowed: this list holds past events (the site's "News"
+  // section) as well as upcoming ones.
+  event_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
+  event_time: z.preprocess(
+    blankToNull,
+    z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, 'Time must be HH:MM').nullable().optional()
+  ),
+  end_time: z.preprocess(
+    blankToNull,
+    z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, 'Time must be HH:MM').nullable().optional()
+  ),
+  location: optionalText(255),
+  image_url: z.preprocess(blankToNull, z.string().url('Must be a valid URL').max(500).nullable().optional()),
+  event_type: optionalText(40),
+  age_groups: optionalText(255),
+  is_published: z.boolean().optional(),
 });
 
 const FacilitySchema = z.object({
@@ -94,11 +116,16 @@ async function createEvent(db: Pool, req: AuthRequest, res: Response): Promise<v
   try {
     const data = NewsEventSchema.parse(req.body);
     const result = await db.query(
-      `INSERT INTO news_events (title, slug, content, image_url, published_at, meta_title, meta_description, meta_keywords)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [data.title, data.slug, data.content, data.image_url || null,
-       data.published_at || new Date().toISOString(), data.meta_title || null,
-       data.meta_description || null, data.meta_keywords || null]
+      `INSERT INTO news_events
+         (title, description, event_date, event_time, end_time, location,
+          image_url, event_type, age_groups, is_published)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      [
+        data.title, data.description, data.event_date,
+        data.event_time ?? null, data.end_time ?? null, data.location ?? null,
+        data.image_url ?? null, data.event_type ?? 'General',
+        data.age_groups ?? null, data.is_published ?? true,
+      ]
     );
     await logActivity(db, req.userId, 'create', 'news_event', result.rows[0]?.id as string, { title: data.title });
     res.status(201).json(result.rows[0]);
@@ -117,13 +144,24 @@ async function updateEvent(db: Pool, req: AuthRequest, res: Response): Promise<v
     const params: unknown[] = [];
     let idx = 1;
 
-    const fields = ['title', 'slug', 'content', 'image_url', 'published_at', 'meta_title', 'meta_description', 'meta_keywords'] as const;
+    const fields = [
+      'title', 'description', 'event_date', 'event_time', 'end_time',
+      'location', 'image_url', 'event_type', 'age_groups', 'is_published',
+    ] as const;
     for (const f of fields) {
-      if (data[f] !== undefined) { sets.push(`${f} = $${idx++}`); params.push(data[f] ?? null); }
+      if (data[f] === undefined) continue;
+      sets.push(`${f} = $${idx++}`);
+      // event_type and is_published are NOT NULL in the table, so a cleared
+      // field has to fall back to the column default rather than to null.
+      if (f === 'event_type') params.push(data.event_type ?? 'General');
+      else if (f === 'is_published') params.push(data.is_published ?? true);
+      else params.push(data[f] ?? null);
     }
-    sets.push(`updated_at = CURRENT_TIMESTAMP`);
 
+    // Checked before updated_at is appended, so a request that names no real
+    // column is rejected instead of silently bumping the timestamp.
     if (params.length === 0) { res.status(400).json({ error: 'No fields to update' }); return; }
+    sets.push(`updated_at = CURRENT_TIMESTAMP`);
 
     params.push(id);
     const result = await db.query(
