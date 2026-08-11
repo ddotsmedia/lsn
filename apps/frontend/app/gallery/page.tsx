@@ -23,6 +23,14 @@ interface GalleryCategory {
   image_count: number;
 }
 
+interface YoutubeVideo {
+  id: string;
+  title: string;
+  description: string | null;
+  youtube_id: string;
+  thumbnail_url: string | null;
+}
+
 const API = process.env.NEXT_PUBLIC_API_URL;
 
 export default function GalleryPage() {
@@ -32,6 +40,15 @@ export default function GalleryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [videos, setVideos] = useState<YoutubeVideo[]>([]);
+  const [playing, setPlaying] = useState<YoutubeVideo | null>(null);
+
+  useEffect(() => {
+    fetch(`${API}/youtube-videos`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: YoutubeVideo[]) => setVideos(Array.isArray(d) ? d : []))
+      .catch(() => setVideos([]));
+  }, []);
 
   useEffect(() => {
     fetch(`${API}/gallery/categories`)
@@ -174,8 +191,88 @@ export default function GalleryPage() {
             )}
           </div>
         </section>
+
+        {videos.length > 0 && (
+          <section aria-labelledby="videos-heading" className="bg-gray-100 py-10 md:py-16">
+            <div className="mx-auto max-w-6xl px-4 md:px-6">
+              <h2
+                id="videos-heading"
+                className="mb-2 text-center text-2xl font-bold text-gray-800 md:text-3xl"
+              >
+                Videos
+              </h2>
+              <p className="mx-auto mb-8 max-w-xl text-center text-base text-gray-600">
+                A closer look at life at Little Smarties.
+              </p>
+
+              <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {videos.map((v) => (
+                  <li key={v.id}>
+                    <button
+                      type="button"
+                      onClick={() => setPlaying(v)}
+                      aria-label={`Play ${v.title}`}
+                      className="group block w-full overflow-hidden rounded-lg bg-white text-left shadow-md transition-shadow hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-800"
+                    >
+                      <span className="relative block">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={v.thumbnail_url || `https://img.youtube.com/vi/${v.youtube_id}/hqdefault.jpg`}
+                          alt=""
+                          loading="lazy"
+                          className="aspect-video w-full object-cover"
+                        />
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/25 transition-colors group-hover:bg-black/40">
+                          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 shadow-lg">
+                            <svg width={22} height={22} viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                          </span>
+                        </span>
+                      </span>
+                      <span className="block p-4">
+                        <span className="block font-bold text-gray-800">{v.title}</span>
+                        {v.description && (
+                          <span className="mt-1 line-clamp-2 block text-sm text-gray-600">
+                            {v.description}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
       </main>
       <Footer />
+
+      <Modal
+        isOpen={playing !== null}
+        onClose={() => setPlaying(null)}
+        title={playing?.title ?? ''}
+        size="lg"
+      >
+        {playing && (
+          <div>
+            {/* Loaded only once the modal opens, so no YouTube request is made
+                until a visitor actually asks to watch something. */}
+            <div className="aspect-video w-full overflow-hidden rounded-lg bg-black">
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${playing.youtube_id}?autoplay=1&rel=0`}
+                title={playing.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="h-full w-full border-0"
+              />
+            </div>
+            {playing.description && (
+              <p className="mt-4 text-base leading-relaxed text-gray-700">{playing.description}</p>
+            )}
+          </div>
+        )}
+      </Modal>
 
       <Modal
         isOpen={current !== null}

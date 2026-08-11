@@ -34,11 +34,16 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
 }
 
 /**
- * Resolves `req.isAdmin` from the admin_users table.
+ * Resolves `req.isAdmin` from users.role.
  *
  * `authenticate` only proves *who* the caller is — it never sets `isAdmin`.
  * Without this middleware in front of it, `requireAdmin` rejects every request,
  * so admin routes mount it as `authenticate -> resolveAdmin -> requireAdmin`.
+ *
+ * This used to read admin_users, while /me read users.role. The two disagreed:
+ * admin_users was empty, so every admin endpoint returned 403 while the panel
+ * showed the user as an administrator. users.role is now the single source of
+ * truth, matching /me.
  */
 export function createResolveAdmin(db: Pool) {
   return async function resolveAdmin(
@@ -53,8 +58,13 @@ export function createResolveAdmin(db: Pool) {
     }
 
     try {
-      const result = await db.query('SELECT role FROM admin_users WHERE user_id = $1', [req.userId]);
-      req.isAdmin = result.rows.length > 0;
+      const result = await db.query(
+        'SELECT role, is_active FROM users WHERE id = $1',
+        [req.userId]
+      );
+      const row = result.rows[0] as { role?: string; is_active?: boolean } | undefined;
+      // A deactivated account keeps its role but loses access.
+      req.isAdmin = row?.role === 'admin' && row.is_active !== false;
     } catch {
       // Fail closed: a lookup error must never grant admin.
       req.isAdmin = false;

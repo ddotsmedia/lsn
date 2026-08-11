@@ -4,11 +4,13 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../../../lib/api';
 import type { PaginatedResponse } from '../../../lib/api';
 import { Button, Modal, FormField, Input, Toast, ConfirmDialog } from '../../../components/admin/shared';
+import { YoutubeManager } from '../../../components/admin/YoutubeManager';
 
 interface Category { id: string; name: string; slug: string; description: string; image_count: number; sort_order: number; }
 interface GalleryImage { id: string; category_id: string; image_url: string; title: string; description: string; category_name: string; sort_order: number; }
 
 export default function GalleryPage() {
+  const [tab, setTab] = useState<'photos' | 'youtube'>('photos');
   const [categories, setCategories] = useState<Category[]>([]);
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 30, total: 0, totalPages: 0 });
@@ -108,6 +110,28 @@ export default function GalleryPage() {
 
   return (
     <div className="space-y-6">
+      {/* Photos / YouTube switch. The photo editor below is unchanged. */}
+      <div role="tablist" aria-label="Gallery content type" className="flex gap-2">
+        {(['photos', 'youtube'] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={tab === t}
+            onClick={() => setTab(t)}
+            className={`min-h-11 rounded-lg px-4 text-sm font-medium transition-colors ${
+              tab === t ? 'bg-emerald-500/15 text-emerald-400' : 'bg-zinc-800/50 text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            {t === 'photos' ? 'Photos' : 'YouTube Videos'}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'youtube' && <YoutubeManager />}
+
+      {tab === 'photos' && (
+      <div className="space-y-6">
       {/* Category bar */}
       <div className="flex flex-wrap items-center gap-2">
         <button
@@ -219,8 +243,10 @@ export default function GalleryPage() {
         </div>
       </Modal>
 
-      <ConfirmDialog open={!!confirmDelete} onClose={() => setConfirmDelete(null)} onConfirm={handleDelete} title="Delete" message={`Are you sure? ${confirmDelete?.type === 'cat' ? 'This will delete all images in this category.' : 'This image will be permanently removed.'}`} confirmLabel="Delete" destructive />
+      <ConfirmDialog open={!!confirmDelete} onClose={() => setConfirmDelete(null)} onConfirm={handleDelete} title="Delete" message={`Are you sure? ${confirmDelete?.type === 'cat' ? 'This will delete all images in this category, and both can be restored from the recycle bin.' : 'This image can be restored from the recycle bin.'}`} confirmLabel="Delete" destructive />
       {toast && <Toast message={toast.message} type={toast.type} />}
+      </div>
+      )}
     </div>
   );
 }

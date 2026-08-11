@@ -60,6 +60,11 @@ async function main(): Promise<void> {
       console.log(`Granted admin_users role=${resolvedRole} to ${email}.`);
     }
 
+    // users.role is what resolveAdmin checks; an admin_users row alone grants
+    // nothing since authorization moved to users.role.
+    await db.query("UPDATE users SET role = 'admin' WHERE id = $1", [userId]);
+    console.log('Set users.role = admin.');
+
     console.log(`\nDone. Log in to the admin panel with ${email}.`);
   } finally {
     await db.end();

@@ -104,6 +104,10 @@ async function inviteAdmin(db: Pool, req: AuthRequest, res: Response): Promise<v
         [userId, data.role || 'moderator', data.permissions || []]
       );
 
+      // users.role is what resolveAdmin reads; without this the invited admin
+      // would be listed as one but get 403 from every admin endpoint.
+      await client.query("UPDATE users SET role = 'admin' WHERE id = $1", [userId]);
+
       await client.query('COMMIT');
 
       await logActivity(db, req.userId, 'invite', 'user', userId, {
@@ -143,6 +147,9 @@ async function updateRole(db: Pool, req: AuthRequest, res: Response): Promise<vo
       [id, data.role, data.permissions || []]
     );
 
+    // Keep users.role, the authorization source of truth, in step.
+    await db.query("UPDATE users SET role = 'admin' WHERE id = $1", [id]);
+
     await logActivity(db, req.userId, 'update', 'admin_user', id, { role: data.role });
     res.json(result.rows[0]);
   } catch (error) {
@@ -163,6 +170,9 @@ async function revokeAdmin(db: Pool, req: AuthRequest, res: Response): Promise<v
 
     const result = await db.query('DELETE FROM admin_users WHERE user_id = $1 RETURNING id', [id]);
     if (result.rows.length === 0) { res.status(404).json({ error: 'Admin user not found' }); return; }
+    // users.role decides isAdmin, so revoking must clear it there too —
+    // otherwise the account keeps full admin access.
+    await db.query("UPDATE users SET role = 'user' WHERE id = $1", [id]);
     await logActivity(db, req.userId, 'delete', 'admin_user', id);
     res.status(204).send();
   } catch (error) {

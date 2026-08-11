@@ -9,6 +9,8 @@ import { createAdminSeoRouter } from './seo.js';
 import { createAdminAnalyticsRouter } from './analytics.js';
 import { createAdminUsersRouter } from './users.js';
 import { createAdminChatbotRouter } from './chatbot.js';
+import { createAdminSocialLinksRouter } from './socialLinks.js';
+import { createAdminYoutubeVideosRouter } from './youtubeVideos.js';
 
 /**
  * Aggregates every admin sub-router under /api/v1/admin.
@@ -26,6 +28,8 @@ export function createAdminRouter(db: Pool): express.Router {
   router.use('/analytics', createAdminAnalyticsRouter(db));
   router.use('/users', createAdminUsersRouter(db));
   router.use('/chatbot', createAdminChatbotRouter(db));
+  router.use('/social-links', createAdminSocialLinksRouter(db));
+  router.use('/youtube-videos', createAdminYoutubeVideosRouter(db));
 
   return router;
 }
