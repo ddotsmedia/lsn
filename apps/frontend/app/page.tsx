@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import Modal from '@/components/Modal';
 import HeroRotator, { HeroSlide } from '@/components/HeroRotator';
 import {
   Butterfly,
@@ -12,6 +13,14 @@ import {
   PaperAirplane,
   CloudScallop,
 } from '@/components/Decorations';
+
+interface FeaturedVideo {
+  id: string;
+  title: string;
+  description: string | null;
+  youtube_id: string;
+  thumbnail_url: string | null;
+}
 
 interface AgeGroup {
   name: string;
@@ -154,6 +163,27 @@ const HERO_SLIDES: HeroSlide[] = [
 export default function Home() {
   const [activeTab, setActiveTab] = useState(0);
   const [testimonialStart, setTestimonialStart] = useState(0);
+  const [featuredVideo, setFeaturedVideo] = useState<FeaturedVideo | null>(null);
+  const [videoLoaded, setVideoLoaded] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/youtube-videos`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((rows: FeaturedVideo[]) => {
+        if (cancelled) return;
+        setFeaturedVideo(Array.isArray(rows) && rows.length > 0 ? rows[0] : null);
+      })
+      // Backend unreachable: fall through to the placeholder, never an error.
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setVideoLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const activeGroup = ageGroups[activeTab];
 
   const visibleTestimonials = [0, 1, 2].map(
@@ -383,9 +413,133 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Featured video                                                    */}
+        {/*                                                                   */}
+        {/* Sits last so the page runs white content -> blue -> dark footer.  */}
+        {/* Hidden until the fetch settles, so an empty band never flashes in */}
+        {/* before the video arrives.                                         */}
+        {/* ---------------------------------------------------------------- */}
+        {videoLoaded && (
+          <section
+            aria-labelledby="featured-video-heading"
+            className="bg-gradient-to-br from-blue-600 to-blue-800 py-16 sm:py-20 lg:py-24"
+          >
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              {featuredVideo ? (
+                <div className="grid grid-cols-1 items-center gap-8 md:grid-cols-2 lg:gap-14">
+                  <button
+                    type="button"
+                    onClick={() => setIsPlaying(true)}
+                    aria-label={`Play video: ${featuredVideo.title}`}
+                    className="group relative block w-full overflow-hidden rounded-2xl shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-700"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={
+                        featuredVideo.thumbnail_url ||
+                        `https://img.youtube.com/vi/${featuredVideo.youtube_id}/hqdefault.jpg`
+                      }
+                      alt={`Thumbnail for ${featuredVideo.title}`}
+                      className="aspect-video w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/25 transition-colors group-hover:bg-black/40">
+                      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/95 shadow-xl transition-transform duration-200 group-hover:scale-110 sm:h-20 sm:w-20">
+                        <svg
+                          width={24}
+                          height={24}
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                          aria-hidden="true"
+                          className="ml-1 text-blue-700 sm:h-8 sm:w-8"
+                        >
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </span>
+                    </span>
+                  </button>
+
+                  <div className="text-white">
+                    <span className="inline-flex rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide">
+                      Featured Video
+                    </span>
+                    <h2
+                      id="featured-video-heading"
+                      className="mt-4 font-display text-3xl leading-tight sm:text-4xl lg:text-5xl"
+                    >
+                      {featuredVideo.title}
+                    </h2>
+                    {featuredVideo.description && (
+                      <p className="mt-4 text-base leading-relaxed text-blue-50 sm:text-lg">
+                        {featuredVideo.description}
+                      </p>
+                    )}
+
+                    <div className="mt-8 flex flex-col items-start gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setIsPlaying(true)}
+                        className="inline-flex min-h-12 items-center gap-2 rounded-full bg-white px-8 font-bold text-blue-700 shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-700"
+                      >
+                        <svg width={18} height={18} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                        Watch Video
+                      </button>
+
+                      <Link
+                        href="/gallery?tab=videos"
+                        className="text-sm font-semibold text-white underline-offset-4 transition-opacity hover:underline hover:opacity-90"
+                      >
+                        See More Videos →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center text-white">
+                  <h2 id="featured-video-heading" className="font-display text-3xl sm:text-4xl">
+                    Videos
+                  </h2>
+                  <p className="mt-3 text-base text-blue-50 sm:text-lg">
+                    Check back soon for videos from our nursery.
+                  </p>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
       </main>
 
       <Footer />
+
+      <Modal
+        isOpen={isPlaying && featuredVideo !== null}
+        onClose={() => setIsPlaying(false)}
+        title={featuredVideo?.title ?? ''}
+        size="lg"
+      >
+        {featuredVideo && (
+          <div>
+            {/* Mounted only on open, so no request reaches YouTube until asked. */}
+            <div className="aspect-video w-full overflow-hidden rounded-lg bg-black">
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${featuredVideo.youtube_id}?autoplay=1&rel=0`}
+                title={featuredVideo.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="h-full w-full border-0"
+              />
+            </div>
+            {featuredVideo.description && (
+              <p className="mt-4 text-base leading-relaxed text-gray-700">
+                {featuredVideo.description}
+              </p>
+            )}
+          </div>
+        )}
+      </Modal>
     </>
   );
 }

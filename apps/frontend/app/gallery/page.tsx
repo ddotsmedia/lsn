@@ -57,6 +57,16 @@ export default function GalleryPage() {
   // First video is featured; the rest fall through to the grid below it.
   const featuredVideo = ytVideos[0] ?? null;
   const otherVideos = ytVideos.slice(1);
+
+  // Lets /gallery?tab=videos (and #videos) open straight on the Videos filter,
+  // which is where the homepage's "See More Videos" link points. Read from
+  // window rather than useSearchParams so this page needs no Suspense boundary.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'videos' || window.location.hash === '#videos') {
+      setActive('videos');
+    }
+  }, []);
   const [playing, setPlaying] = useState<YoutubeVideo | null>(null);
 
   useEffect(() => {
