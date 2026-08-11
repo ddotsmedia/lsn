@@ -98,21 +98,27 @@ export function createAnalyticsTracker(db: Pool) {
       // and cannot race with a parallel request from the same visitor.
       void db
         .query(
+          // Every parameter is cast explicitly. page_path is varchar but the
+          // slug comparison below produces text, and without the casts Postgres
+          // deduces two different types for the same placeholder and rejects
+          // the statement with 42P08.
           `INSERT INTO page_analytics
              (page_path, page_id, visitor_ip, visitor_id, user_agent, referer, referrer,
               session_id, device_type, browser, visited_at, created_at)
-           SELECT $1,
+           SELECT $1::text,
                   (SELECT id FROM pages
-                    WHERE deleted_at IS NULL AND (path = $1 OR '/' || slug = $1)
+                    WHERE deleted_at IS NULL
+                      AND (path = $1::text OR '/' || slug = $1::text)
                     LIMIT 1),
-                  $2, $3, $4, $5, $5, $3, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                  $2::text, $3::text, $4::text, $5::text, $5::text, $3::text,
+                  $6::text, $7::text, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
             WHERE NOT EXISTS (
               SELECT 1 FROM page_analytics
-               WHERE session_id = $3
-                 AND page_path = $1
-                 AND visited_at > CURRENT_TIMESTAMP - ($8 || ' minutes')::interval
+               WHERE session_id = $3::text
+                 AND page_path = $1::text
+                 AND visited_at > CURRENT_TIMESTAMP - make_interval(mins => $8::int)
             )`,
-          [pagePath, ip, session, ua || null, referer ?? null, deviceOf(ua), browserOf(ua), String(DEDUPE_WINDOW_MINUTES)]
+          [pagePath, ip, session, ua || null, referer ?? null, deviceOf(ua), browserOf(ua), DEDUPE_WINDOW_MINUTES]
         )
         .catch((error: unknown) => {
           // Missing table, bad column, database down — none of it should
