@@ -8,9 +8,18 @@ import { createFacilitiesRouter } from './routes/facilities.js';
 import { createRegistrationsRouter } from './routes/registrations.js';
 import { createBookingsRouter } from './routes/bookings.js';
 import { createChatbotRouter } from './routes/chatbot.js';
+import multer from 'multer';
+import cloudinary from 'cloudinary';
+import { createVideoUploadRouter } from './routes/videoUpload.js';
 import { createAdminRouter } from './routes/admin/index.js';
 
 const app = express();
+// Configure Cloudinary
+cloudinary.v2.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 const PORT = process.env.PORT || 3011;
 
 const db = new Pool({
@@ -43,6 +52,7 @@ app.use('/api/v1/registrations', createRegistrationsRouter(db));
 app.use('/api/v1/tour-bookings', createBookingsRouter(db));
 app.use('/api/v1/chatbot', createChatbotRouter(db));
 app.use('/api/v1/admin', createAdminRouter(db));
+app.use('/api/v1/videos', createVideoUploadRouter(db));
 
 app.listen(PORT, () => {
   console.log(`Backend running on port ${PORT}`);

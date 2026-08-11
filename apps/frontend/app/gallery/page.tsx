@@ -3,17 +3,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { Modal } from '@/components/Modal';
+import Modal from '@/components/Modal';
+import VideoUploadModal from '@/components/VideoUploadModal';
 
 interface GalleryImage {
   id: string;
-  image_url: string;
   title: string;
-  description?: string | null;
-  alt_text?: string | null;
-  category_name?: string | null;
-  category_slug?: string | null;
-  is_featured: boolean;
+  alt_text: string | null;
+  description: string | null;
+  image_url: string;
+  category_id: string | null;
+  category_name: string | null;
 }
 
 interface GalleryCategory {
@@ -32,6 +32,9 @@ export default function GalleryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [videos, setVideos] = useState<any[]>([]);
 
   useEffect(() => {
     fetch(`${API}/gallery/categories`)
@@ -39,6 +42,49 @@ export default function GalleryPage() {
       .then((d: GalleryCategory[]) => setCategories(Array.isArray(d) ? d : []))
       .catch(() => setCategories([]));
   }, []);
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      try {
+        const res = await fetch(`${API}/auth/me`);
+        if (res.ok) {
+          const data = await res.json();
+          setIsAdmin(data.isAdmin || false);
+        }
+      } catch {
+        setIsAdmin(false);
+      }
+    };
+    checkAdmin();
+  }, []);
+
+  useEffect(() => {
+    fetchVideos();
+  }, []);
+
+  const fetchVideos = async () => {
+    try {
+      const res = await fetch(`${API}/videos/list`);
+      if (res.ok) {
+        const data = await res.json();
+        setVideos(data.data || []);
+      }
+    } catch {
+      setVideos([]);
+    }
+  };
+
+  const handleDeleteVideo = async (videoId: string) => {
+    if (!confirm('Delete this video?')) return;
+    try {
+      const res = await fetch(`${API}/videos/${videoId}`, { method: 'DELETE' });
+      if (res.ok) {
+        await fetchVideos();
+      }
+    } catch (err) {
+      console.error('Error deleting video:', err);
+    }
+  };
 
   const load = useCallback(async (slug: string) => {
     setLoading(true);
@@ -58,25 +104,34 @@ export default function GalleryPage() {
   }, []);
 
   useEffect(() => {
-    void load(active);
+    load(active);
   }, [active, load]);
 
-  const current = openIndex === null ? null : (images[openIndex] ?? null);
-  const step = (delta: number): void =>
-    setOpenIndex((i) => (i === null || images.length === 0 ? i : (i + delta + images.length) % images.length));
+  const current = openIndex !== null ? images[openIndex] ?? null : null;
 
-  // Arrow keys move through the lightbox; Modal already handles Escape.
+  const step = (by: number) => {
+    setOpenIndex((idx) => {
+      if (idx === null) return null;
+      const next = idx + by;
+      return next >= 0 && next < images.length ? next : idx;
+    });
+  };
+
   useEffect(() => {
-    if (openIndex === null) return;
-    const onKey = (e: KeyboardEvent): void => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') step(-1);
       if (e.key === 'ArrowRight') step(1);
+      if (e.key === 'Escape') setOpenIndex(null);
     };
-    document.addEventListener('keydown', onKey);
+    if (openIndex !== null) document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [openIndex, images.length]);
 
-  const filters = [{ slug: 'all', name: 'All photos' }, ...categories];
+  const filters = [
+    { slug: 'all', name: 'All photos' },
+    ...categories,
+    { slug: 'videos', name: 'Videos', image_count: videos.length }
+  ];
 
   return (
     <>
@@ -93,84 +148,130 @@ export default function GalleryPage() {
             A look inside our rooms, our garden and our busiest days.
           </p>
         </section>
-
         <section aria-labelledby="gallery-heading" className="py-10 md:py-16">
           <div className="mx-auto max-w-6xl px-4 md:px-6">
             <h2 id="gallery-heading" className="sr-only">
               Photo gallery
             </h2>
 
-            {categories.length > 0 && (
-              <div className="-mx-4 mb-8 overflow-x-auto px-4 pb-2 scrollbar-none [&::-webkit-scrollbar]:hidden">
-                <div role="tablist" aria-label="Filter by category" className="flex gap-2">
-                  {filters.map((c) => {
-                    const selected = active === c.slug;
-                    return (
-                      <button
-                        key={c.slug}
-                        type="button"
-                        role="tab"
-                        aria-selected={selected}
-                        onClick={() => setActive(c.slug)}
-                        className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-800 ${
-                          selected
-                            ? 'bg-red-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        {c.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+            <ul className="mb-8 flex flex-wrap gap-2">
+              {filters.map(({ slug, name }) => (
+                <li key={slug}>
+                  <button
+                    onClick={() => {
+                      setActive(slug);
+                      setOpenIndex(null);
+                    }}
+                    className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                      active === slug
+                        ? 'bg-blue-600 text-white'
+                        : 'border border-gray-300 text-gray-700 hover:border-blue-600 hover:text-blue-600'
+                    }`}
+                  >
+                    {name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            {active !== 'videos' && (
+              <>
+                {loading && (
+                  <div className="py-12 text-center">
+                    <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
+                  </div>
+                )}
+
+                {error && (
+                  <div className="rounded-lg bg-red-50 p-4 text-red-800">
+                    Failed to load gallery. Please try again.
+                  </div>
+                )}
+
+                {!loading && !error && images.length === 0 && (
+                  <div className="py-12 text-center text-gray-500">
+                    No images found in this category.
+                  </div>
+                )}
+
+                {!loading && images.length > 0 && (
+                  <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                    {images.map((image, idx) => (
+                      <li key={image.id}>
+                        <button
+                          onClick={() => setOpenIndex(idx)}
+                          className="group relative block w-full overflow-hidden rounded-lg bg-gray-100"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={image.image_url}
+                            alt={image.alt_text || image.title}
+                            className="aspect-square w-full object-cover transition group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover:bg-black/30">
+                            <span className="text-2xl text-white opacity-0 transition group-hover:opacity-100">
+                              👁
+                            </span>
+                          </div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
 
-            {loading ? (
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
-                {Array.from({ length: 8 }, (_, i) => (
-                  <div key={i} className="aspect-square animate-pulse rounded-lg bg-gray-100" />
-                ))}
-              </div>
-            ) : error ? (
-              <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-center">
-                <p className="text-sm text-amber-800">We couldn&rsquo;t load the gallery.</p>
-                <button
-                  type="button"
-                  onClick={() => void load(active)}
-                  className="mt-3 min-h-11 rounded-lg bg-amber-600 px-4 text-sm font-semibold text-white hover:bg-amber-700"
-                >
-                  Try again
-                </button>
-              </div>
-            ) : images.length === 0 ? (
-              <p className="py-12 text-center text-base text-gray-600">
-                No photos here yet — check back soon.
-              </p>
-            ) : (
-              <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
-                {images.map((img, i) => (
-                  <li key={img.id}>
-                    <button
-                      type="button"
-                      onClick={() => setOpenIndex(i)}
-                      aria-label={`Open ${img.title}`}
-                      className="group relative block w-full overflow-hidden rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-800 focus-visible:ring-offset-2"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={img.image_url}
-                        alt={img.alt_text || img.title}
-                        loading="lazy"
-                        className="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 text-left text-xs font-medium text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
-                        {img.title}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+            {active === 'videos' && (
+              <section className="mt-8">
+                {isAdmin && (
+                  <button
+                    onClick={() => setShowUploadModal(true)}
+                    className="mb-6 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold"
+                  >
+                    + Upload Video
+                  </button>
+                )}
+
+                {videos.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-600">No videos yet</p>
+                    {isAdmin && (
+                      <p className="text-sm text-gray-500 mt-2">
+                        Click "Upload Video" to add promotional videos
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {videos.map((video) => (
+                      <div key={video.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+                        <div className="relative bg-black h-48">
+                          <video
+                            src={video.video_url}
+                            poster={video.thumbnail_url}
+                            controls
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="p-4">
+                          <h3 className="font-bold text-gray-900">{video.title}</h3>
+                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                            {video.description}
+                          </p>
+                          {isAdmin && (
+                            <button
+                              onClick={() => handleDeleteVideo(video.id)}
+                              className="mt-4 w-full px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
             )}
           </div>
         </section>
@@ -178,7 +279,7 @@ export default function GalleryPage() {
       <Footer />
 
       <Modal
-        isOpen={current !== null}
+        isOpen={current !== null && active !== 'videos'}
         onClose={() => setOpenIndex(null)}
         title={current?.title ?? ''}
         size="lg"
@@ -197,9 +298,10 @@ export default function GalleryPage() {
               </p>
             )}
             {current.description && (
-              <p className="mt-2 text-base leading-relaxed text-gray-700">{current.description}</p>
+              <p className="mt-2 text-base leading-relaxed text-gray-700">
+                {current.description}
+              </p>
             )}
-
             {images.length > 1 && (
               <div className="mt-6 flex items-center justify-between border-t border-gray-100 pt-4">
                 <button
@@ -224,6 +326,14 @@ export default function GalleryPage() {
           </div>
         )}
       </Modal>
+
+      <VideoUploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        onUploadSuccess={() => {
+          fetchVideos();
+        }}
+      />
     </>
   );
 }
