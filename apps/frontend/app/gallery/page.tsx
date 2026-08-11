@@ -54,6 +54,9 @@ export default function GalleryPage() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [videos, setVideos] = useState<CloudinaryVideo[]>([]);
   const [ytVideos, setYtVideos] = useState<YoutubeVideo[]>([]);
+  // First video is featured; the rest fall through to the grid below it.
+  const featuredVideo = ytVideos[0] ?? null;
+  const otherVideos = ytVideos.slice(1);
   const [playing, setPlaying] = useState<YoutubeVideo | null>(null);
 
   useEffect(() => {
@@ -259,45 +262,116 @@ export default function GalleryPage() {
                   </button>
                 )}
 
-                {ytVideos.length > 0 && (
-                  <div className="mb-10">
-                    <h3 className="mb-4 text-lg font-bold text-gray-900">From our YouTube channel</h3>
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                      {ytVideos.map((v) => (
+                {featuredVideo && (
+                  <div className="mb-12">
+                    {/* Featured: first video, given the full width */}
+                    <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-blue-800 shadow-lg">
+                      <div className="grid grid-cols-1 items-center gap-6 p-6 md:grid-cols-2 md:gap-8 md:p-8">
                         <button
-                          key={v.id}
                           type="button"
-                          onClick={() => setPlaying(v)}
-                          aria-label={`Play ${v.title}`}
-                          className="group block overflow-hidden rounded-lg bg-white text-left shadow-md transition-shadow hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-800"
+                          onClick={() => setPlaying(featuredVideo)}
+                          aria-label={`Play ${featuredVideo.title}`}
+                          className="group relative block w-full overflow-hidden rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-700"
                         >
-                          <span className="relative block">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={v.thumbnail_url || `https://img.youtube.com/vi/${v.youtube_id}/hqdefault.jpg`}
-                              alt=""
-                              loading="lazy"
-                              className="aspect-video w-full object-cover"
-                            />
-                            <span className="absolute inset-0 flex items-center justify-center bg-black/25 transition-colors group-hover:bg-black/40">
-                              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 shadow-lg">
-                                <svg width={22} height={22} viewBox="0 0 24 24" fill="white" aria-hidden="true">
-                                  <path d="M8 5v14l11-7z" />
-                                </svg>
-                              </span>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={
+                              featuredVideo.thumbnail_url ||
+                              `https://img.youtube.com/vi/${featuredVideo.youtube_id}/hqdefault.jpg`
+                            }
+                            alt=""
+                            className="aspect-video w-full object-cover"
+                          />
+                          <span className="absolute inset-0 flex items-center justify-center bg-black/25 transition-colors group-hover:bg-black/40">
+                            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/95 shadow-xl transition-transform duration-200 group-hover:scale-110 md:h-20 md:w-20">
+                              <svg
+                                width={26}
+                                height={26}
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                                aria-hidden="true"
+                                className="ml-1 text-blue-700"
+                              >
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
                             </span>
                           </span>
-                          <span className="block p-4">
-                            <span className="block font-bold text-gray-900">{v.title}</span>
-                            {v.description && (
-                              <span className="mt-1 line-clamp-2 block text-sm text-gray-600">
-                                {v.description}
-                              </span>
-                            )}
-                          </span>
                         </button>
-                      ))}
+
+                        <div className="text-white">
+                          <span className="inline-flex rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide">
+                            Featured Video
+                          </span>
+                          <h3 className="mt-3 text-2xl font-bold md:text-3xl">
+                            {featuredVideo.title}
+                          </h3>
+                          {featuredVideo.description && (
+                            <p className="mt-3 text-base leading-relaxed text-blue-50">
+                              {featuredVideo.description}
+                            </p>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setPlaying(featuredVideo)}
+                            className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-lg bg-white px-6 font-semibold text-blue-700 shadow transition-colors hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-700"
+                          >
+                            <svg width={18} height={18} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                            Play Video
+                          </button>
+                        </div>
+                      </div>
                     </div>
+
+                    {otherVideos.length > 0 && (
+                      <>
+                        <h3 className="mb-4 mt-10 text-lg font-bold text-gray-900">More Videos</h3>
+                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                          {otherVideos.map((v) => (
+                            <button
+                              key={v.id}
+                              type="button"
+                              onClick={() => setPlaying(v)}
+                              aria-label={`Play ${v.title}`}
+                              className="group block overflow-hidden rounded-lg bg-white text-left shadow-md transition-shadow duration-200 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-800"
+                            >
+                              {/* overflow-hidden here so the thumbnail scale stays inside the card */}
+                              <span className="relative block overflow-hidden">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={v.thumbnail_url || `https://img.youtube.com/vi/${v.youtube_id}/hqdefault.jpg`}
+                                  alt=""
+                                  loading="lazy"
+                                  className="aspect-video w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                />
+                                <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md bg-blue-700 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow">
+                                  <svg width={10} height={10} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                    <path d="M8 5v14l11-7z" />
+                                  </svg>
+                                  Video
+                                </span>
+                                <span className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/35">
+                                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform duration-200 group-hover:scale-110">
+                                    <svg width={18} height={18} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="ml-0.5 text-blue-700">
+                                      <path d="M8 5v14l11-7z" />
+                                    </svg>
+                                  </span>
+                                </span>
+                              </span>
+                              <span className="block p-4">
+                                <span className="block font-bold text-gray-900">{v.title}</span>
+                                {v.description && (
+                                  <span className="mt-1 line-clamp-2 block text-sm text-gray-600">
+                                    {v.description}
+                                  </span>
+                                )}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
 
