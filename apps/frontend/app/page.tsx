@@ -13,6 +13,7 @@ import {
   PaperAirplane,
   CloudScallop,
 } from '@/components/Decorations';
+import { PartnerLogo } from '@/components/PartnerLogo';
 
 interface FeaturedVideo {
   id: string;
@@ -146,7 +147,12 @@ const testimonials: Testimonial[] = [
   },
 ];
 
-const partners = ['Partner One', 'Partner Two', 'Partner Three', 'Partner Four', 'Partner Five', 'Partner Six'];
+interface Partner {
+  id: string;
+  name: string;
+  logo_url: string | null;
+  website_url: string | null;
+}
 
 /**
  * Real photos pulled from littlesmartiesnursery.com's own hero rotator,
@@ -163,9 +169,25 @@ const HERO_SLIDES: HeroSlide[] = [
 export default function Home() {
   const [activeTab, setActiveTab] = useState(0);
   const [testimonialStart, setTestimonialStart] = useState(0);
+  const [partners, setPartners] = useState<Partner[]>([]);
+  const [partnersLoading, setPartnersLoading] = useState(true);
   const [featuredVideo, setFeaturedVideo] = useState<FeaturedVideo | null>(null);
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // Partners managed in admin → Partners. A failure leaves the list empty and
+  // the section shows its own message rather than breaking the page.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/partners`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('failed'))))
+      .then((data: { partners?: Partner[] }) => {
+        if (!cancelled) setPartners(Array.isArray(data?.partners) ? data.partners : []);
+      })
+      .catch(() => undefined)
+      .finally(() => { if (!cancelled) setPartnersLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -402,15 +424,27 @@ export default function Home() {
         <section className="bg-white pb-20 sm:pb-28">
           <div className="mx-auto max-w-6xl px-4 text-center sm:px-6 lg:px-8">
             <h2 className="font-display text-4xl text-red-600 sm:text-5xl">Our Partners</h2>
-            <div className="mt-10 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-6">
-              {partners.map((name) => (
-                <div
-                  key={name}
-                  className="flex h-16 items-center justify-center rounded-xl bg-gray-200"
-                  aria-label={name}
-                />
-              ))}
-            </div>
+
+            {partnersLoading ? (
+              <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-3 lg:grid-cols-6">
+                {Array.from({ length: 6 }, (_, i) => (
+                  <div key={i} className="h-20 animate-pulse rounded-xl bg-gray-200" />
+                ))}
+              </div>
+            ) : partners.length === 0 ? (
+              <p className="mt-6 text-base text-gray-600">No partners yet.</p>
+            ) : (
+              <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-3 lg:grid-cols-6">
+                {partners.map((partner) => (
+                  <PartnerLogo
+                    key={partner.id}
+                    name={partner.name}
+                    logoUrl={partner.logo_url}
+                    websiteUrl={partner.website_url}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
