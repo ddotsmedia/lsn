@@ -237,6 +237,10 @@ export interface ImageGalleryProps {
 }
 
 export function ImageGallery({ images, onDelete, onReorder }: ImageGalleryProps) {
+  // The source index lives in a ref as well as state: drop has to read it, and
+  // a drag can start and finish before React has re-rendered, which would leave
+  // the state copy still null. State is only for the visual feedback.
+  const dragRef = useRef<number | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
 
@@ -258,12 +262,14 @@ export function ImageGallery({ images, onDelete, onReorder }: ImageGalleryProps)
         <figure
           key={image.assignment_id ?? image.id}
           draggable={Boolean(onReorder)}
-          onDragStart={() => setDragIndex(index)}
+          onDragStart={() => { dragRef.current = index; setDragIndex(index); }}
           onDragOver={(e) => { e.preventDefault(); setOverIndex(index); }}
-          onDragEnd={() => { setDragIndex(null); setOverIndex(null); }}
+          onDragEnd={() => { dragRef.current = null; setDragIndex(null); setOverIndex(null); }}
           onDrop={(e) => {
             e.preventDefault();
-            if (dragIndex !== null) commit(dragIndex, index);
+            const from = dragRef.current;
+            if (from !== null) commit(from, index);
+            dragRef.current = null;
             setDragIndex(null);
             setOverIndex(null);
           }}
