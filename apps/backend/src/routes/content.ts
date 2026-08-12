@@ -4,6 +4,7 @@ import type { AuthRequest } from '../middleware/auth.js';
 import { listPublicSocialLinks } from '../controllers/socialLinksController.js';
 import { listPublicYoutubeVideos } from '../controllers/youtubeVideosController.js';
 import { listPublicNews } from '../controllers/newsController.js';
+import { getSiteMedia, getAgeGroupMedia, getPageMedia } from '../controllers/mediaController.js';
 
 /**
  * Read-only endpoints the public site needs: the footer's social links and the
@@ -16,6 +17,13 @@ export function createPublicContentRouter(db: Pool): express.Router {
   router.get('/social-links', (req, res) => listPublicSocialLinks(db, req as AuthRequest, res));
   router.get('/youtube-videos', (req, res) => listPublicYoutubeVideos(db, req as AuthRequest, res));
   router.get('/news', (req, res) => listPublicNews(db, req as AuthRequest, res));
+
+  // Media the public site renders. Read-only; every mutation stays behind
+  // /api/v1/admin/media. These reuse the admin controllers because the shape
+  // the admin panel previews and the shape the site renders are the same.
+  router.get('/site-media', (req, res) => getSiteMedia(db, req as AuthRequest, res));
+  router.get('/age-group-media/:slug', (req, res) => getAgeGroupMedia(db, req as AuthRequest, res));
+  router.get('/page-media/:slug', (req, res) => getPageMedia(db, req as AuthRequest, res));
 
   return router;
 }
