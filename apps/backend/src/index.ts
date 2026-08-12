@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { Pool } from 'pg';
-import { v2 as cloudinary } from 'cloudinary';
+import { cloudinary } from './config/cloudinary.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createGalleryRouter } from './routes/gallery.js';
 import { createEventsRouter } from './routes/events.js';
@@ -16,18 +16,6 @@ import { createAnalyticsTracker } from './middleware/analytics.js';
 
 const app = express();
 const PORT = process.env.PORT || 3011;
-
-// The SDK configures itself from CLOUDINARY_URL on import. Production sets that
-// variable and not the three below, so calling config() with them unconditionally
-// overwrote working credentials with undefined and every upload failed to
-// authenticate. Only override when the individual variables are actually present.
-if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  });
-}
 
 if (!cloudinary.config().api_key) {
   console.warn('Cloudinary is not configured — image uploads will fail. Set CLOUDINARY_URL.');

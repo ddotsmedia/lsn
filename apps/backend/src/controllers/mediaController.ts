@@ -1,6 +1,6 @@
 import type { Response } from 'express';
 import type { Pool } from 'pg';
-import { v2 as cloudinary } from 'cloudinary';
+import { cloudinary, isCloudinaryConfigured } from '../config/cloudinary.js';
 import { z } from 'zod';
 import type { AuthRequest } from '../middleware/auth.js';
 import { logActivity } from '../utils/activityLog.js';
@@ -54,7 +54,7 @@ export async function uploadMedia(db: Pool, req: AuthRequest, res: Response): Pr
       return;
     }
 
-    if (!cloudinary.config().api_key) {
+    if (!isCloudinaryConfigured()) {
       res.status(503).json({ error: 'Image hosting is not configured. Set CLOUDINARY_URL.' });
       return;
     }

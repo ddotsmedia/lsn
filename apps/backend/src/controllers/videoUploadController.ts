@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { Pool } from 'pg';
-import cloudinary from 'cloudinary';
+// Configured centrally. Calling cloudinary.config() here as well used to
+// overwrite the credentials the SDK had read from CLOUDINARY_URL.
+import { cloudinary } from '../config/cloudinary.js';
 
 // `ip` is optional on Express's Request; redeclaring it as required here made
 // this local type incompatible with the shared AuthRequest the middleware uses.
@@ -12,12 +14,6 @@ interface AuthRequest extends Request {
   file?: Express.Multer.File;
 }
 
-cloudinary.v2.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
-
 export const uploadToCloudinary = async (req: AuthRequest, res: Response) => {
   if (!req.isAdmin) {
     return res.status(403).json({ success: false, error: 'Unauthorized' });
@@ -28,7 +24,7 @@ export const uploadToCloudinary = async (req: AuthRequest, res: Response) => {
   }
 
   try {
-    const uploadStream = cloudinary.v2.uploader.upload_stream(
+    const uploadStream = cloudinary.uploader.upload_stream(
       {
         resource_type: 'video',
         folder: 'littlesmarties/videos',
