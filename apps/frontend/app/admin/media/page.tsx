@@ -73,6 +73,22 @@ interface PageMediaResponse {
   sections: Record<string, MediaItem | undefined>;
 }
 
+/**
+ * Declared at module scope, not inside the page component. A component defined
+ * inside another is a new type on every render, so React unmounts and remounts
+ * its whole subtree on each state change — which throws away the file input and
+ * an in-flight upload's progress along with it.
+ */
+function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-zinc-800/50 bg-[#111119] p-6">
+      <h3 className="text-sm font-medium text-zinc-300">{title}</h3>
+      {hint && <p className="mt-0.5 text-xs text-zinc-500">{hint}</p>}
+      <div className="mt-4">{children}</div>
+    </div>
+  );
+}
+
 /* -------------------------------------------------------------------- page */
 
 export default function MediaPage() {
@@ -244,14 +260,6 @@ export default function MediaPage() {
   };
 
   /* ---------------------------------------------------------------- render */
-
-  const Section = ({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) => (
-    <div className="rounded-xl border border-zinc-800/50 bg-[#111119] p-6">
-      <h3 className="text-sm font-medium text-zinc-300">{title}</h3>
-      {hint && <p className="mt-0.5 text-xs text-zinc-500">{hint}</p>}
-      <div className="mt-4">{children}</div>
-    </div>
-  );
 
   return (
     <div className="space-y-6">
