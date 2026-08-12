@@ -222,7 +222,10 @@ async function removeOne(db: Pool, req: AuthRequest, id: string): Promise<boolea
 
   if (row.cloudinary_public_id) {
     try {
-      await cloudinary.uploader.destroy(row.cloudinary_public_id);
+      // invalidate purges the CDN copies too. Without it the original is gone
+      // but the cached f_auto/q_auto derivative keeps being served for hours,
+      // so a deleted image stays visible to visitors.
+      await cloudinary.uploader.destroy(row.cloudinary_public_id, { invalidate: true });
     } catch (error) {
       console.error(`cloudinary destroy failed for ${row.cloudinary_public_id}`, error);
     }
