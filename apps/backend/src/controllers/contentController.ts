@@ -221,7 +221,10 @@ export async function deleteEvent(db: Pool, req: AuthRequest, res: Response): Pr
 // Facilities
 export async function getFacilities(db: Pool, _req: AuthRequest, res: Response): Promise<void> {
   try {
-    const result = await db.query('SELECT * FROM facilities ORDER BY created_at DESC');
+    // Soft-deleted facilities must not keep showing on the public page.
+    const result = await db.query(
+      'SELECT * FROM facilities WHERE deleted_at IS NULL ORDER BY sort_order ASC, created_at DESC'
+    );
     res.json(result.rows as Facility[]);
   } catch (error) {
     console.error('getFacilities failed', error);

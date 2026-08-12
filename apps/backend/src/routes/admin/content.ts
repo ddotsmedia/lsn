@@ -41,12 +41,16 @@ const NewsEventSchema = z.object({
 });
 
 const FacilitySchema = z.object({
-  name: z.string().min(1).max(255),
-  description: z.string().min(1),
-  image_url: z.string().url().optional().nullable(),
-  location: z.string().min(1).max(255),
-  meta_title: z.string().max(255).optional().nullable(),
-  meta_description: z.string().optional().nullable(),
+  name: z.string().trim().min(1, 'Name is required').max(255),
+  description: z.string().trim().min(1, 'Description is required'),
+  image_url: z.preprocess(blankToNull, z.string().url('Must be a valid URL').max(512).nullable().optional()),
+  // Optional: the six facilities already in the database have no location, so
+  // requiring one would make every one of them impossible to edit.
+  location: optionalText(255),
+  meta_title: optionalText(255),
+  meta_description: z.preprocess(blankToNull, z.string().trim().nullable().optional()),
+  icon: optionalText(100),
+  sort_order: z.number().int().optional(),
 });
 
 const AgeGroupSchema = z.object({
@@ -229,11 +233,16 @@ async function listFacilities(db: Pool, req: AuthRequest, res: Response): Promis
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
     const offset = (page - 1) * limit;
 
-    const countResult = await db.query('SELECT COUNT(*) FROM facilities');
+    // ?deleted=true shows the soft-deleted rows so they can be restored.
+    const where = req.query.deleted === 'true'
+      ? 'WHERE deleted_at IS NOT NULL'
+      : 'WHERE deleted_at IS NULL';
+
+    const countResult = await db.query(`SELECT COUNT(*) FROM facilities ${where}`);
     const total = Number(countResult.rows[0]?.count ?? 0);
 
     const dataResult = await db.query(
-      `SELECT * FROM facilities ORDER BY sort_order ASC, created_at DESC LIMIT $1 OFFSET $2`,
+      `SELECT * FROM facilities ${where} ORDER BY sort_order ASC, created_at DESC LIMIT $1 OFFSET $2`,
       [limit, offset]
     );
 
@@ -258,13 +267,22 @@ async function getFacility(db: Pool, req: AuthRequest, res: Response): Promise<v
 async function createFacility(db: Pool, req: AuthRequest, res: Response): Promise<void> {
   try {
     const data = FacilitySchema.parse(req.body);
-    const result = await db.query(
-      `INSERT INTO facilities (name, description, image_url, location, meta_title, meta_description)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [data.name, data.description, data.image_url || null, data.location,
-       data.meta_title || null, data.meta_description || null]
+
+    // New facilities go to the end of the list.
+    const next = await db.query(
+      'SELECT COALESCE(MAX(sort_order), -1) + 1 AS next FROM facilities WHERE deleted_at IS NULL'
     );
-    await logActivity(db, req.userId, 'create', 'facility', result.rows[0]?.id as string, { name: data.name });
+
+    const result = await db.query(
+      `INSERT INTO facilities (name, description, image_url, location, meta_title, meta_description, icon, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [data.name, data.description, data.image_url ?? null, data.location ?? null,
+       data.meta_title ?? null, data.meta_description ?? null, data.icon ?? null,
+       data.sort_order ?? (next.rows[0] as { next: number }).next]
+    );
+    await logActivity(db, req.userId, 'create', 'facility', result.rows[0]?.id as string, {
+      newValues: result.rows[0] as Record<string, unknown>, req,
+    });
     res.status(201).json(result.rows[0]);
   } catch (error) {
     if (error instanceof z.ZodError) { res.status(400).json({ error: 'Validation failed', details: error.issues }); return; }
@@ -281,17 +299,19 @@ async function updateFacility(db: Pool, req: AuthRequest, res: Response): Promis
     const params: unknown[] = [];
     let idx = 1;
 
-    const fields = ['name', 'description', 'image_url', 'location', 'meta_title', 'meta_description'] as const;
+    const fields = ['name', 'description', 'image_url', 'location', 'meta_title', 'meta_description', 'icon', 'sort_order'] as const;
     for (const f of fields) {
       if (data[f] !== undefined) { sets.push(`${f} = $${idx++}`); params.push(data[f] ?? null); }
     }
-    sets.push(`updated_at = CURRENT_TIMESTAMP`);
 
+    // Checked before updated_at is appended, so a request naming no real column
+    // is rejected rather than silently bumping the timestamp.
     if (params.length === 0) { res.status(400).json({ error: 'No fields to update' }); return; }
+    sets.push(`updated_at = CURRENT_TIMESTAMP`);
 
     params.push(id);
     const result = await db.query(
-      `UPDATE facilities SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`,
+      `UPDATE facilities SET ${sets.join(', ')} WHERE id = $${idx} AND deleted_at IS NULL RETURNING *`,
       params
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Facility not found' }); return; }
@@ -307,13 +327,43 @@ async function updateFacility(db: Pool, req: AuthRequest, res: Response): Promis
 async function deleteFacility(db: Pool, req: AuthRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const result = await db.query('DELETE FROM facilities WHERE id = $1 RETURNING id', [id]);
+    // Soft delete, matching every other content table: this used to be a hard
+    // DELETE, so a mis-click destroyed the row with nothing to restore from.
+    const result = await db.query(
+      `UPDATE facilities SET deleted_at = CURRENT_TIMESTAMP
+        WHERE id = $1 AND deleted_at IS NULL RETURNING *`,
+      [id]
+    );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Facility not found' }); return; }
-    await logActivity(db, req.userId, 'delete', 'facility', id);
+    await logActivity(db, req.userId, 'delete', 'facility', id, {
+      oldValues: result.rows[0] as Record<string, unknown>, req,
+    });
     res.status(204).send();
   } catch (error) {
     console.error('deleteFacility failed', error);
     res.status(500).json({ error: 'Failed to delete facility' });
+  }
+}
+
+async function restoreFacility(db: Pool, req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const result = await db.query(
+      `UPDATE facilities SET deleted_at = NULL
+        WHERE id = $1 AND deleted_at IS NOT NULL RETURNING *`,
+      [id]
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'No deleted facility with that id' });
+      return;
+    }
+    await logActivity(db, req.userId, 'restore', 'facility', id, {
+      newValues: result.rows[0] as Record<string, unknown>, req,
+    });
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('restoreFacility failed', error);
+    res.status(500).json({ error: 'Failed to restore facility' });
   }
 }
 
@@ -416,6 +466,29 @@ async function deleteAgeGroup(db: Pool, req: AuthRequest, res: Response): Promis
 // ======================== Router ========================
 
 /**
+ * The facility routes on their own, so they can be mounted at /admin/facilities
+ * as well as under /admin/content. Both paths stay live: the admin page calls
+ * /admin/content/facilities today.
+ */
+export function createAdminFacilitiesRouter(db: Pool): express.Router {
+  const router = express.Router();
+  const resolveAdmin = createResolveAdmin(db);
+
+  router.use(authenticate, resolveAdmin, requireAdmin);
+
+  router.get('/', (req, res) => listFacilities(db, req as AuthRequest, res));
+  // Before /:id, so "reorder" is not read as an id.
+  router.post('/reorder', (req, res) => reorderFacilities(db, req as AuthRequest, res));
+  router.get('/:id', (req, res) => getFacility(db, req as AuthRequest, res));
+  router.post('/', (req, res) => createFacility(db, req as AuthRequest, res));
+  router.put('/:id', (req, res) => updateFacility(db, req as AuthRequest, res));
+  router.delete('/:id', (req, res) => deleteFacility(db, req as AuthRequest, res));
+  router.post('/:id/restore', (req, res) => restoreFacility(db, req as AuthRequest, res));
+
+  return router;
+}
+
+/**
  * The event routes on their own, so they can be mounted at /admin/events as
  * well as under /admin/content. The admin UI uses /admin/events; the recycle
  * bin still calls /admin/content/events, so both stay live.
@@ -457,6 +530,7 @@ export function createAdminContentRouter(db: Pool): express.Router {
   router.put('/facilities/:id', (req, res) => updateFacility(db, req as AuthRequest, res));
   router.delete('/facilities/:id', (req, res) => deleteFacility(db, req as AuthRequest, res));
   router.post('/facilities/reorder', (req, res) => reorderFacilities(db, req as AuthRequest, res));
+  router.post('/facilities/:id/restore', (req, res) => restoreFacility(db, req as AuthRequest, res));
 
   // Age Groups
   router.get('/age-groups', (req, res) => listAgeGroups(db, req as AuthRequest, res));

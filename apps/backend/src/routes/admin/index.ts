@@ -3,7 +3,7 @@ import type { Pool } from 'pg';
 import { createAdminRegistrationsRouter } from './registrations.js';
 import { createAdminBookingsRouter } from './bookings.js';
 import { createAdminGalleryRouter } from './gallery.js';
-import { createAdminContentRouter, createAdminEventsRouter } from './content.js';
+import { createAdminContentRouter, createAdminEventsRouter, createAdminFacilitiesRouter } from './content.js';
 import { createAdminNewsRouter } from './news.js';
 import { createAdminDashboardRouter } from './dashboard.js';
 import { createAdminMediaRouter } from './media.js';
@@ -31,6 +31,8 @@ export function createAdminRouter(db: Pool): express.Router {
   router.use('/dashboard', createAdminDashboardRouter(db));
   router.use('/media', createAdminMediaRouter(db));
   router.use('/partners', createAdminPartnersRouter(db));
+  // Same handlers as /content/facilities, at the shorter path.
+  router.use('/facilities', createAdminFacilitiesRouter(db));
   // Same handlers as /content/events, at the path the admin Events tab uses.
   router.use('/events', createAdminEventsRouter(db));
   router.use('/pages', createAdminPagesRouter(db));
