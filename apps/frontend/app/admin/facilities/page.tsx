@@ -154,11 +154,17 @@ export default function FacilitiesPage() {
   const columns: Column<Facility>[] = [
     {
       key: 'name', header: 'Name',
+      render: (r) => <span className="font-medium">{r.name}</span>,
+    },
+    {
+      // The stored values are icon names ("classroom", "palette"), not glyphs,
+      // so this renders as a labelled chip rather than inline beside the name
+      // where it would read as part of it.
+      key: 'icon', header: 'Icon', className: 'w-[120px]',
       render: (r) => (
-        <div className="flex items-center gap-2">
-          {r.icon && <span aria-hidden="true">{r.icon}</span>}
-          <span className="font-medium">{r.name}</span>
-        </div>
+        r.icon
+          ? <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-400">{r.icon}</code>
+          : <span className="text-xs text-zinc-600">—</span>
       ),
     },
     {
@@ -224,10 +230,12 @@ export default function FacilitiesPage() {
               <Input value={form.name} onChange={(e) => setField('name', e.target.value)} maxLength={255} />
             </FormField>
             <FormField label="Icon">
+              {/* The existing rows store names like "classroom", so the
+                  placeholder shows that rather than suggesting an emoji. */}
               <Input
                 value={form.icon}
                 onChange={(e) => setField('icon', e.target.value)}
-                placeholder="🎨"
+                placeholder="classroom"
                 maxLength={100}
               />
             </FormField>
