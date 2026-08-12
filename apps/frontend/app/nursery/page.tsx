@@ -8,6 +8,8 @@ import { MissionCard, type MissionCardColor, type MissionCardTitle } from '@/com
 import { StatCard } from '@/components/StatCard';
 import { TeamMemberCard } from '@/components/TeamMemberCard';
 import { Butterfly, Circle, Cloud, Flower } from '@/components/Decorations';
+import { HeroBackground } from '@/components/HeroBackground';
+import { usePageMedia } from '@/lib/media';
 
 /* -------------------------------------------------------------------------- */
 /* Data                                                                        */
@@ -223,6 +225,9 @@ function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
 /* -------------------------------------------------------------------------- */
 
 export default function NurseryPage() {
+  // Hero image uploaded via admin → Media Library → Pages. Absent until one is
+  // set, in which case the hero keeps its gradient.
+  const pageImages = usePageMedia('nursery');
   return (
     <>
       <Header />
@@ -235,6 +240,7 @@ export default function NurseryPage() {
           aria-labelledby="hero-heading"
           className="relative flex min-h-75 items-center justify-center overflow-hidden bg-gradient-to-br from-blue-800 to-blue-500 px-4 lg:min-h-125"
         >
+          <HeroBackground image={pageImages.hero} />
           {/* Decorative accents — hidden from assistive tech. */}
           <Butterfly className="absolute left-[6%] top-[18%] w-16 text-white opacity-20 lg:w-24" />
           <Flower className="absolute right-[8%] top-[22%] w-12 text-white opacity-20 lg:w-20" />

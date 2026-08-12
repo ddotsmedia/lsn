@@ -6,6 +6,8 @@ import { Accordion, type AccordionEntry } from '@/components/Accordion';
 import { ContactForm } from '@/components/ContactForm';
 import { InfoCard } from '@/components/InfoCard';
 import { Butterfly, Flower } from '@/components/Decorations';
+import { HeroBackground } from '@/components/HeroBackground';
+import { usePageMedia } from '@/lib/media';
 
 /* -------------------------------------------------------------------------- */
 /* Data                                                                        */
@@ -117,6 +119,9 @@ const MAP_QUERY = 'Khalifa+City+A+Abu+Dhabi';
 /* -------------------------------------------------------------------------- */
 
 export default function ContactPage() {
+  // Hero image uploaded via admin → Media Library → Pages. Absent until one is
+  // set, in which case the hero keeps its gradient.
+  const pageImages = usePageMedia('contact');
   return (
     <>
       <Header />
@@ -129,6 +134,7 @@ export default function ContactPage() {
           aria-labelledby="hero-heading"
           className="relative flex min-h-62.5 items-center justify-center overflow-hidden bg-gradient-to-br from-red-600 to-amber-500 px-4 lg:min-h-100"
         >
+          <HeroBackground image={pageImages.hero} />
           <Butterfly className="absolute left-[8%] top-[20%] w-14 text-white opacity-20 lg:w-20" />
           <Flower className="absolute right-[10%] bottom-[22%] w-12 text-white opacity-20 lg:w-20" />
 

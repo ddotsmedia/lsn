@@ -7,6 +7,7 @@ import { Button } from '@/components/Button';
 import { AgeGroupCard, type AgeGroupColor } from '@/components/AgeGroupCard';
 import { QuickFactsCard } from '@/components/QuickFactsCard';
 import { Butterfly, Flower } from '@/components/Decorations';
+import { useAgeGroupMedia, useAgeGroupIcons, slugify } from '@/lib/media';
 
 /* -------------------------------------------------------------------------- */
 /* Data                                                                        */
@@ -36,6 +37,16 @@ interface AgeGroup {
   /** Tailwind gradient for the placeholder image in the detail panel. */
   gradient: string;
 }
+
+/** Module scope so the array identity is stable across renders. */
+const AGE_GROUP_SLUGS: readonly string[] = [
+  'bouncing-bunnies',
+  'precious-pandas',
+  'gentle-giraffes',
+  'dazzling-dolphins',
+  'fuzzy-foxes',
+  'cuddly-camels',
+];
 
 const AGE_GROUPS: readonly AgeGroup[] = [
   {
@@ -344,6 +355,14 @@ export default function AgeGroupsPage() {
   }, []);
 
   const selected = selectedIndex === null ? null : (AGE_GROUPS[selectedIndex] ?? null);
+
+  // Images uploaded for this group in the admin Media Library. The slug is
+  // derived from the name the same way the admin panel derives it.
+  const ageGroupImages = useAgeGroupMedia(selected ? slugify(selected.name) : null);
+  const heroImage = ageGroupImages.hero;
+
+  // Icons for every card, fetched once rather than per card.
+  const groupIcons = useAgeGroupIcons(AGE_GROUP_SLUGS);
   const previousGroup =
     selectedIndex === null || selectedIndex === 0 ? null : AGE_GROUPS[selectedIndex - 1];
   const nextGroup =
@@ -401,6 +420,8 @@ export default function AgeGroupsPage() {
                 <AgeGroupCard
                   key={group.id}
                   emoji={group.emoji}
+                  iconUrl={groupIcons[slugify(group.name)]?.url}
+                  iconAlt={groupIcons[slugify(group.name)]?.alt_text}
                   name={group.name}
                   range={group.range}
                   description={group.description}
@@ -428,16 +449,26 @@ export default function AgeGroupsPage() {
           >
             <div className="mx-auto max-w-6xl px-4 md:px-6 lg:px-8">
               <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-2 lg:gap-12">
-                {/* Placeholder image */}
-                <div
-                  className={`aspect-5/6 w-full rounded-lg bg-gradient-to-br ${selected.gradient} flex items-center justify-center lg:sticky lg:top-24`}
-                  role="img"
-                  aria-label={`${selected.name}, ${selected.range}`}
-                >
-                  <span className="text-7xl md:text-8xl" aria-hidden="true">
-                    {selected.emoji}
-                  </span>
-                </div>
+                {/* An uploaded hero replaces the gradient placeholder. Until
+                    one exists the emoji panel renders exactly as before. */}
+                {heroImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={heroImage.url}
+                    alt={heroImage.alt_text || `${selected.name}, ${selected.range}`}
+                    className="aspect-5/6 w-full rounded-lg object-cover lg:sticky lg:top-24"
+                  />
+                ) : (
+                  <div
+                    className={`aspect-5/6 w-full rounded-lg bg-gradient-to-br ${selected.gradient} flex items-center justify-center lg:sticky lg:top-24`}
+                    role="img"
+                    aria-label={`${selected.name}, ${selected.range}`}
+                  >
+                    <span className="text-7xl md:text-8xl" aria-hidden="true">
+                      {selected.emoji}
+                    </span>
+                  </div>
+                )}
 
                 {/* Content */}
                 <div>

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { HeroBackground } from '@/components/HeroBackground';
+import { usePageMedia } from '@/lib/media';
 import Modal from '@/components/Modal';
 import VideoUploadModal from '@/components/VideoUploadModal';
 
@@ -44,6 +46,8 @@ interface YoutubeVideo {
 const API = process.env.NEXT_PUBLIC_API_URL;
 
 export default function GalleryPage() {
+  // Hero image uploaded via admin → Media Library → Pages.
+  const pageImages = usePageMedia('gallery');
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [categories, setCategories] = useState<GalleryCategory[]>([]);
   const [active, setActive] = useState('all');
