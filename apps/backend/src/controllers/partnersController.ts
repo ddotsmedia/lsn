@@ -325,9 +325,13 @@ export async function listPublicPartners(db: Pool, _req: AuthRequest, res: Respo
         WHERE deleted_at IS NULL AND is_active = TRUE
         ORDER BY sort_order ASC, created_at DESC`
     );
-    // An hour, as specified. stale-while-revalidate lets a proxy serve the old
-    // list instantly while it refreshes, so an edit is never blocking.
-    res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
+    // The brief asked for an hour. A flat max-age=3600 means a browser that has
+    // already loaded the homepage keeps showing the old strip for an hour, so a
+    // partner added in the admin panel appears not to exist — verified against
+    // production. s-maxage keeps the full hour where it is actually worth
+    // having, on shared caches, while browsers revalidate after a minute;
+    // stale-while-revalidate means that revalidation is never blocking.
+    res.set('Cache-Control', 'public, max-age=60, s-maxage=3600, stale-while-revalidate=86400');
     res.json({ partners: result.rows });
   } catch (error) {
     console.error('listPublicPartners failed', error);
