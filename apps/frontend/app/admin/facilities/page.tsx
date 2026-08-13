@@ -1,292 +1,512 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../../lib/api';
 import type { PaginatedResponse } from '../../../lib/api';
-import { DataTable } from '../../../components/admin/DataTable';
-import type { Column } from '../../../components/admin/DataTable';
 import { Button, Modal, FormField, Input, Textarea, Toast, ConfirmDialog } from '../../../components/admin/shared';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+
+interface FacilityImage {
+  assignment_id: string;
+  media_id: string;
+  url: string;
+  alt_text: string | null;
+  is_primary: boolean;
+}
 
 interface Facility {
   id: string;
   name: string;
   description: string;
-  image_url: string | null;
-  location: string | null;
+  detailed_description: string | null;
   icon: string | null;
-  meta_title: string | null;
-  meta_description: string | null;
+  location: string | null;
   sort_order: number;
-  created_at: string;
+  features: string[];
+  amenities: string[];
+  images: FacilityImage[];
 }
 
 interface FormState {
   name: string;
   description: string;
-  image_url: string;
-  location: string;
+  detailed_description: string;
   icon: string;
-  meta_title: string;
-  meta_description: string;
+  location: string;
+  features: string[];
+  amenities: string[];
 }
 
 const EMPTY: FormState = {
-  name: '', description: '', image_url: '', location: '', icon: '', meta_title: '', meta_description: '',
+  name: '', description: '', detailed_description: '', icon: '', location: '',
+  features: [], amenities: [],
 };
 
-type Errors = Partial<Record<keyof FormState, string>>;
+/** A small, relevant set beats a full emoji picker for this many facilities. */
+const ICONS = ['🏫', '🌳', '🎨', '🎵', '📚', '💻', '🔬', '🎭', '🍽️', '🧸', '🏊', '⚽', '🧑‍⚕️', '🚌', '🛏️', '🧩'];
 
-/** Mirrors the server's rules so a mistake costs no round trip. */
-function validate(form: FormState): Errors {
-  const errors: Errors = {};
-  if (!form.name.trim()) errors.name = 'Name is required';
-  else if (form.name.trim().length > 255) errors.name = 'Name must be 255 characters or fewer';
-  if (!form.description.trim()) errors.description = 'Description is required';
-  if (form.image_url.trim()) {
-    try { new URL(form.image_url.trim()); }
-    catch { errors.image_url = 'Must be a valid URL, e.g. https://example.com/photo.jpg'; }
-  }
-  return errors;
+type Errors = Partial<Record<'name' | 'description', string>>;
+
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('lsn_token') : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/** Add/remove/reorder-free editor for one bullet list. */
+function BulletEditor({
+  label, hint, values, onChange,
+}: {
+  label: string;
+  hint: string;
+  values: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [draft, setDraft] = useState('');
+
+  const add = () => {
+    const text = draft.trim();
+    if (!text) return;
+    if (values.some((v) => v.toLowerCase() === text.toLowerCase())) {
+      setDraft('');
+      return; // the server rejects duplicates too
+    }
+    onChange([...values, text]);
+    setDraft('');
+  };
+
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wider text-zinc-400">{label}</p>
+      <p className="mb-2 text-xs text-zinc-600">{hint}</p>
+
+      {values.length > 0 && (
+        <ul className="mb-2 space-y-1.5">
+          {values.map((value, index) => (
+            <li key={`${value}-${index}`} className="flex items-center gap-2 rounded-lg bg-[#0c0c14] px-3 py-2">
+              <span className="flex-1 text-sm text-zinc-300">{value}</span>
+              <button
+                type="button"
+                onClick={() => onChange(values.filter((_, i) => i !== index))}
+                aria-label={`Remove ${value}`}
+                className="rounded px-2 text-sm text-red-400 hover:bg-red-500/10"
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="flex gap-2">
+        <Input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
+          placeholder="Type and press Enter"
+        />
+        <Button variant="secondary" onClick={add} className="shrink-0">Add</Button>
+      </div>
+    </div>
+  );
 }
 
 export default function FacilitiesPage() {
   const [data, setData] = useState<Facility[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
-  /** Set when the list could not be loaded, so the page can offer a retry. */
   const [loadError, setLoadError] = useState<string | null>(null);
+
   const [showModal, setShowModal] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
+  const [modalTab, setModalTab] = useState<'details' | 'images'>('details');
+  const [editing, setEditing] = useState<Facility | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
+
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Facility | null>(null);
 
-  const fetchData = useCallback(async (page = 1) => {
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const dragRef = useRef<number | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+
+  const ok = (message: string) => setToast({ message, type: 'success' });
+  const fail = (message: string) => setToast({ message, type: 'error' });
+
+  const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const res = await api<PaginatedResponse<Facility>>('/admin/facilities', { params: { page, limit: 20 } });
+      const res = await api<PaginatedResponse<Facility>>('/admin/facilities', { params: { limit: 100 } });
       setData(res.data);
-      setPagination(res.pagination);
     } catch (err) {
-      // Surfaces the server's own message rather than a blanket "failed",
-      // which is what made the original error impossible to act on.
       setLoadError(err instanceof Error ? err.message : 'Failed to load facilities');
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { void load(); }, [load]);
   useEffect(() => {
     if (toast) { const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); }
   }, [toast]);
 
-  const openCreate = () => { setEditId(null); setForm(EMPTY); setErrors({}); setShowModal(true); };
+  const openCreate = () => {
+    setEditing(null); setForm(EMPTY); setErrors({}); setModalTab('details'); setShowModal(true);
+  };
 
   const openEdit = (f: Facility) => {
-    setEditId(f.id);
+    setEditing(f);
     setForm({
       name: f.name,
       description: f.description ?? '',
-      image_url: f.image_url ?? '',
-      location: f.location ?? '',
+      detailed_description: f.detailed_description ?? '',
       icon: f.icon ?? '',
-      meta_title: f.meta_title ?? '',
-      meta_description: f.meta_description ?? '',
+      location: f.location ?? '',
+      features: [...(f.features ?? [])],
+      amenities: [...(f.amenities ?? [])],
     });
-    setErrors({});
-    setShowModal(true);
+    setErrors({}); setModalTab('details'); setShowModal(true);
   };
 
-  const closeModal = () => { if (!saving) { setShowModal(false); setEditId(null); setErrors({}); } };
-
   const save = async () => {
-    const found = validate(form);
+    const found: Errors = {};
+    if (!form.name.trim()) found.name = 'Name is required';
+    if (!form.description.trim()) found.description = 'Description is required';
     setErrors(found);
-    if (Object.keys(found).length > 0) {
-      setToast({ message: 'Please fix the highlighted fields', type: 'error' });
-      return;
-    }
+    if (Object.keys(found).length > 0) { fail('Please fix the highlighted fields'); return; }
 
     setSaving(true);
     try {
       const body = {
         name: form.name.trim(),
         description: form.description.trim(),
-        image_url: form.image_url.trim() || null,
-        location: form.location.trim() || null,
+        detailed_description: form.detailed_description.trim() || null,
         icon: form.icon.trim() || null,
-        meta_title: form.meta_title.trim() || null,
-        meta_description: form.meta_description.trim() || null,
+        location: form.location.trim() || null,
+        features: form.features,
+        amenities: form.amenities,
       };
-      if (editId) {
-        await api(`/admin/facilities/${editId}`, { method: 'PUT', body: JSON.stringify(body) });
-      } else {
-        await api('/admin/facilities', { method: 'POST', body: JSON.stringify(body) });
-      }
-      setToast({ message: `Facility ${editId ? 'updated' : 'created'}`, type: 'success' });
-      setShowModal(false); setEditId(null); setForm(EMPTY);
-      fetchData(editId ? pagination.page : 1);
+      if (editing) await api(`/admin/facilities/${editing.id}`, { method: 'PUT', body: JSON.stringify(body) });
+      else await api('/admin/facilities', { method: 'POST', body: JSON.stringify(body) });
+      ok(`Facility ${editing ? 'updated' : 'created'}`);
+      setShowModal(false); setEditing(null); setForm(EMPTY);
+      await load();
     } catch (err) {
-      setToast({ message: err instanceof Error ? err.message : 'Failed to save', type: 'error' });
+      fail(err instanceof Error ? err.message : 'Failed to save');
     } finally { setSaving(false); }
   };
 
-  const handleDelete = async () => {
+  const remove = async () => {
     if (!confirmDelete) return;
     const target = confirmDelete;
     setConfirmDelete(null);
     try {
       await api(`/admin/facilities/${target.id}`, { method: 'DELETE' });
-      setToast({ message: `${target.name} deleted`, type: 'success' });
-      fetchData(pagination.page);
+      ok(`${target.name} moved to the recycle bin`);
+      await load();
+    } catch (err) { fail(err instanceof Error ? err.message : 'Failed to delete'); }
+  };
+
+  const commitOrder = async (from: number, to: number) => {
+    if (from === to) return;
+    const next = [...data];
+    const [moved] = next.splice(from, 1);
+    if (moved) next.splice(to, 0, moved);
+    setData(next); // optimistic
+    try {
+      await api('/admin/facilities/reorder', { method: 'POST', body: JSON.stringify({ ids: next.map((f) => f.id) }) });
+      ok('Order saved');
     } catch (err) {
-      setToast({ message: err instanceof Error ? err.message : 'Failed to delete', type: 'error' });
+      fail(err instanceof Error ? err.message : 'Failed to save order');
+      await load();
     }
   };
 
-  const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
-    setForm((f) => ({ ...f, [key]: value }));
-    setErrors((e) => (e[key] ? { ...e, [key]: undefined } : e));
+  const uploadImages = async (files: FileList | null) => {
+    if (!files || files.length === 0 || !editing) return;
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/')) { fail(`${file.name} is not an image`); continue; }
+        const body = new FormData();
+        body.append('file', file);
+        const res = await fetch(`${API_BASE}/admin/facilities/${editing.id}/images`, {
+          method: 'POST', headers: authHeaders(), body,
+        });
+        if (!res.ok) {
+          const payload = await res.json().catch(() => ({}));
+          throw new Error((payload as { error?: string }).error || `Upload failed (${res.status})`);
+        }
+      }
+      ok(`${files.length} image${files.length === 1 ? '' : 's'} uploaded`);
+      const refreshed = await api<Facility>(`/admin/facilities/${editing.id}`);
+      setEditing(refreshed);
+      await load();
+    } catch (err) {
+      fail(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+      if (imageInputRef.current) imageInputRef.current.value = '';
+    }
   };
 
-  const columns: Column<Facility>[] = [
-    {
-      key: 'name', header: 'Name',
-      render: (r) => <span className="font-medium">{r.name}</span>,
-    },
-    {
-      // The stored values are icon names ("classroom", "palette"), not glyphs,
-      // so this renders as a labelled chip rather than inline beside the name
-      // where it would read as part of it.
-      key: 'icon', header: 'Icon', className: 'w-[120px]',
-      render: (r) => (
-        r.icon
-          ? <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-400">{r.icon}</code>
-          : <span className="text-xs text-zinc-600">—</span>
-      ),
-    },
-    {
-      key: 'location', header: 'Location',
-      render: (r) => <span className="text-xs text-zinc-400">{r.location || '—'}</span>,
-    },
-    {
-      key: 'description', header: 'Description',
-      render: (r) => (
-        <span className="block max-w-md truncate text-xs text-zinc-500" title={r.description}>
-          {r.description || '—'}
-        </span>
-      ),
-    },
-    {
-      key: 'actions', header: '', className: 'w-[150px]',
-      render: (r) => (
-        <div className="flex gap-1">
-          <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); openEdit(r); }}>Edit</Button>
-          <Button size="sm" variant="danger" onClick={(e) => { e.stopPropagation(); setConfirmDelete(r); }}>Delete</Button>
-        </div>
-      ),
-    },
-  ];
+  const removeImage = async (image: FacilityImage) => {
+    if (!editing) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/facilities/${editing.id}/images/${image.assignment_id}`, {
+        method: 'DELETE', headers: authHeaders(),
+      });
+      if (!res.ok && res.status !== 204) throw new Error(`Failed (${res.status})`);
+      ok('Image removed');
+      const refreshed = await api<Facility>(`/admin/facilities/${editing.id}`);
+      setEditing(refreshed);
+      await load();
+    } catch (err) { fail(err instanceof Error ? err.message : 'Failed to remove'); }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-zinc-500">
-          {loading ? 'Loading…' : `${pagination.total} facilit${pagination.total === 1 ? 'y' : 'ies'}`}
-        </p>
-        <Button onClick={openCreate}>+ New Facility</Button>
+        <div>
+          <p className="text-sm text-zinc-400">
+            {loading ? 'Loading…' : `${data.length} facilit${data.length === 1 ? 'y' : 'ies'}`}
+          </p>
+          <p className="text-xs text-zinc-600">Drag the rows to change the order they appear on the site.</p>
+        </div>
+        <Button onClick={openCreate}>+ Add Facility</Button>
       </div>
 
       {loadError ? (
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-8 text-center">
           <p className="text-sm font-medium text-red-300">Could not load facilities</p>
           <p className="mx-auto mt-1 max-w-md text-xs text-red-400/80">{loadError}</p>
-          <Button variant="secondary" onClick={() => fetchData(pagination.page)} className="mt-4">
-            Try again
-          </Button>
+          <Button variant="secondary" onClick={() => void load()} className="mt-4">Try again</Button>
         </div>
+      ) : loading ? (
+        <div className="space-y-2">
+          {[0, 1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-zinc-800/40" />)}
+        </div>
+      ) : data.length === 0 ? (
+        <p className="rounded-xl border border-zinc-800/50 bg-[#111119] p-10 text-center text-sm text-zinc-500">
+          No facilities yet. Use “+ Add Facility” to create the first one.
+        </p>
       ) : (
-        <DataTable
-          columns={columns}
-          data={data}
-          loading={loading}
-          pagination={pagination}
-          onPageChange={(p) => fetchData(p)}
-          emptyMessage="No facilities yet. Use “+ New Facility” to add the first one."
-        />
+        <ul className="space-y-2">
+          {data.map((facility, index) => (
+            <li
+              key={facility.id}
+              draggable
+              onDragStart={() => { dragRef.current = index; setDragIndex(index); }}
+              onDragOver={(e) => { e.preventDefault(); setOverIndex(index); }}
+              onDragEnd={() => { dragRef.current = null; setDragIndex(null); setOverIndex(null); }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const from = dragRef.current;
+                if (from !== null) void commitOrder(from, index);
+                dragRef.current = null; setDragIndex(null); setOverIndex(null);
+              }}
+              className={`flex cursor-move items-center gap-4 rounded-xl border bg-[#111119] p-4 transition-all ${
+                overIndex === index && dragIndex !== index
+                  ? 'border-emerald-500 ring-2 ring-emerald-500/30'
+                  : 'border-zinc-800/50'
+              } ${dragIndex === index ? 'opacity-40' : ''}`}
+            >
+              <span className="text-zinc-600" aria-hidden="true">⠿</span>
+
+              {facility.images?.[0] ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={facility.images[0].url} alt="" className="h-12 w-16 shrink-0 rounded object-cover" />
+              ) : (
+                <span className="flex h-12 w-16 shrink-0 items-center justify-center rounded bg-zinc-900 text-2xl">
+                  {facility.icon || '🏫'}
+                </span>
+              )}
+
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-zinc-200">{facility.name}</p>
+                <p className="truncate text-xs text-zinc-500">{facility.description}</p>
+                <p className="mt-0.5 text-xs text-zinc-600">
+                  {facility.features?.length ?? 0} features · {facility.amenities?.length ?? 0} amenities ·{' '}
+                  {facility.images?.length ?? 0} images
+                </p>
+              </div>
+
+              <div className="flex shrink-0 gap-1">
+                <Button size="sm" variant="secondary" onClick={() => openEdit(facility)}>Edit</Button>
+                <Button size="sm" variant="danger" onClick={() => setConfirmDelete(facility)}>Delete</Button>
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
 
       <Modal
         open={showModal}
-        onClose={closeModal}
-        title={editId ? 'Edit Facility' : 'New Facility'}
-        maxWidth="max-w-xl"
+        onClose={() => { if (!saving) { setShowModal(false); setEditing(null); } }}
+        title={editing ? `Edit ${editing.name}` : 'New Facility'}
+        maxWidth="max-w-2xl"
       >
-        <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-2">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_100px]">
-            <FormField label="Name *" error={errors.name}>
-              <Input value={form.name} onChange={(e) => setField('name', e.target.value)} maxLength={255} />
-            </FormField>
-            <FormField label="Icon">
-              {/* The existing rows store names like "classroom", so the
-                  placeholder shows that rather than suggesting an emoji. */}
-              <Input
-                value={form.icon}
-                onChange={(e) => setField('icon', e.target.value)}
-                placeholder="classroom"
-                maxLength={100}
-              />
-            </FormField>
-          </div>
-
-          <FormField label="Location">
-            <Input
-              value={form.location}
-              onChange={(e) => setField('location', e.target.value)}
-              placeholder="Ground floor, east wing"
-              maxLength={255}
-            />
-          </FormField>
-
-          <FormField label="Description *" error={errors.description}>
-            <Textarea value={form.description} onChange={(e) => setField('description', e.target.value)} rows={4} />
-          </FormField>
-
-          <FormField label="Image URL" error={errors.image_url}>
-            <Input
-              value={form.image_url}
-              onChange={(e) => setField('image_url', e.target.value)}
-              placeholder="https://..."
-            />
-          </FormField>
-
-          <div className="border-t border-zinc-800/50 pt-4">
-            <p className="mb-3 text-xs uppercase tracking-wider text-zinc-500">SEO</p>
-            <div className="space-y-3">
-              <FormField label="Meta Title">
-                <Input value={form.meta_title} onChange={(e) => setField('meta_title', e.target.value)} maxLength={255} />
-              </FormField>
-              <FormField label="Meta Description">
-                <Textarea value={form.meta_description} onChange={(e) => setField('meta_description', e.target.value)} rows={2} />
-              </FormField>
+        <div className="max-h-[72vh] space-y-4 overflow-y-auto pr-2">
+          {editing && (
+            <div className="flex gap-1 border-b border-zinc-800" role="tablist" aria-label="Facility sections">
+              {([['details', 'Details'], ['images', 'Images']] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  role="tab"
+                  aria-selected={modalTab === key}
+                  onClick={() => setModalTab(key)}
+                  className={`-mb-px rounded-t-lg border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+                    modalTab === key
+                      ? 'border-emerald-500 text-emerald-400'
+                      : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-          </div>
+          )}
 
-          <div className="flex justify-end gap-2 border-t border-zinc-800/50 pt-4">
-            <Button variant="secondary" onClick={closeModal} disabled={saving}>Cancel</Button>
-            <Button onClick={save} disabled={saving}>
-              {saving ? 'Saving…' : editId ? 'Save Changes' : 'Create'}
-            </Button>
-          </div>
+          {editing && modalTab === 'images' ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-zinc-500">
+                  Shown in the facility&rsquo;s gallery on the public page. The first is used as its thumbnail.
+                </p>
+                <Button onClick={() => imageInputRef.current?.click()} disabled={uploading}>
+                  {uploading ? 'Uploading…' : '+ Add images'}
+                </Button>
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => void uploadImages(e.target.files)}
+                />
+              </div>
+
+              {(editing.images?.length ?? 0) === 0 ? (
+                <p className="py-6 text-center text-sm text-zinc-500">
+                  No images yet. The public page shows tinted placeholders until you add some.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {editing.images.map((image) => (
+                    <figure key={image.assignment_id} className="group relative overflow-hidden rounded-lg border border-zinc-800">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={image.url} alt={image.alt_text ?? ''} className="aspect-4/3 w-full object-cover" />
+                      {image.is_primary && (
+                        <span className="absolute left-2 top-2 rounded bg-emerald-500/90 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                          Primary
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void removeImage(image)}
+                        aria-label="Remove image"
+                        className="absolute right-2 top-2 rounded bg-red-500/80 px-2 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+                      >
+                        ×
+                      </button>
+                    </figure>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto]">
+                <FormField label="Name *" error={errors.name}>
+                  <Input
+                    value={form.name}
+                    onChange={(e) => { setForm((f) => ({ ...f, name: e.target.value })); setErrors((x) => ({ ...x, name: undefined })); }}
+                    placeholder="Math Lab"
+                    maxLength={255}
+                  />
+                </FormField>
+                <FormField label="Icon">
+                  <div className="flex flex-wrap gap-1">
+                    {ICONS.map((icon) => (
+                      <button
+                        key={icon}
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, icon: f.icon === icon ? '' : icon }))}
+                        aria-label={`Use ${icon}`}
+                        aria-pressed={form.icon === icon}
+                        className={`h-8 w-8 rounded text-lg transition-colors ${
+                          form.icon === icon ? 'bg-emerald-500/25 ring-1 ring-emerald-500' : 'hover:bg-zinc-800'
+                        }`}
+                      >
+                        {icon}
+                      </button>
+                    ))}
+                  </div>
+                </FormField>
+              </div>
+
+              <FormField label="Short description *" error={errors.description}>
+                <Textarea
+                  rows={2}
+                  value={form.description}
+                  onChange={(e) => { setForm((f) => ({ ...f, description: e.target.value })); setErrors((x) => ({ ...x, description: undefined })); }}
+                  placeholder="One line shown on the facility card."
+                />
+              </FormField>
+
+              <FormField label="Full description">
+                <Textarea
+                  rows={4}
+                  value={form.detailed_description}
+                  onChange={(e) => setForm((f) => ({ ...f, detailed_description: e.target.value }))}
+                  placeholder="The longer text shown when the facility is opened."
+                />
+              </FormField>
+
+              <FormField label="Location">
+                <Input
+                  value={form.location}
+                  onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+                  placeholder="Ground floor, east wing"
+                  maxLength={255}
+                />
+              </FormField>
+
+              <div className="border-t border-zinc-800/50 pt-4">
+                <BulletEditor
+                  label="Features"
+                  hint="Shown on the card in the facilities grid."
+                  values={form.features}
+                  onChange={(features) => setForm((f) => ({ ...f, features }))}
+                />
+              </div>
+
+              <div className="border-t border-zinc-800/50 pt-4">
+                <BulletEditor
+                  label="Amenities"
+                  hint="Shown in the detail panel when the facility is opened."
+                  values={form.amenities}
+                  onChange={(amenities) => setForm((f) => ({ ...f, amenities }))}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 border-t border-zinc-800/50 pt-4">
+                <Button variant="secondary" onClick={() => setShowModal(false)} disabled={saving}>Cancel</Button>
+                <Button onClick={save} disabled={saving}>
+                  {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create'}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
 
       <ConfirmDialog
         open={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}
-        onConfirm={handleDelete}
+        onConfirm={remove}
         title="Delete facility"
         message={`Delete ${confirmDelete?.name ?? 'this facility'}? It moves to the recycle bin and can be restored.`}
         confirmLabel="Delete"

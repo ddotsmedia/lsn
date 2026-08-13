@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { authenticate, createResolveAdmin, requireAdmin } from '../../middleware/auth.js';
 import type { AuthRequest } from '../../middleware/auth.js';
 import { logActivity } from '../../utils/activityLog.js';
+import { registerFacilityRoutes } from './facilities.js';
 
 // ---------- Schemas ----------
 
@@ -474,29 +475,6 @@ async function deleteAgeGroup(db: Pool, req: AuthRequest, res: Response): Promis
 // ======================== Router ========================
 
 /**
- * The facility routes on their own, so they can be mounted at /admin/facilities
- * as well as under /admin/content. Both paths stay live: the admin page calls
- * /admin/content/facilities today.
- */
-export function createAdminFacilitiesRouter(db: Pool): express.Router {
-  const router = express.Router();
-  const resolveAdmin = createResolveAdmin(db);
-
-  router.use(authenticate, resolveAdmin, requireAdmin);
-
-  router.get('/', (req, res) => listFacilities(db, req as AuthRequest, res));
-  // Before /:id, so "reorder" is not read as an id.
-  router.post('/reorder', (req, res) => reorderFacilities(db, req as AuthRequest, res));
-  router.get('/:id', (req, res) => getFacility(db, req as AuthRequest, res));
-  router.post('/', (req, res) => createFacility(db, req as AuthRequest, res));
-  router.put('/:id', (req, res) => updateFacility(db, req as AuthRequest, res));
-  router.delete('/:id', (req, res) => deleteFacility(db, req as AuthRequest, res));
-  router.post('/:id/restore', (req, res) => restoreFacility(db, req as AuthRequest, res));
-
-  return router;
-}
-
-/**
  * The event routes on their own, so they can be mounted at /admin/events as
  * well as under /admin/content. The admin UI uses /admin/events; the recycle
  * bin still calls /admin/content/events, so both stay live.
@@ -531,14 +509,8 @@ export function createAdminContentRouter(db: Pool): express.Router {
   router.delete('/events/:id', (req, res) => deleteEvent(db, req as AuthRequest, res));
   router.post('/events/:id/restore', (req, res) => restoreEvent(db, req as AuthRequest, res));
 
-  // Facilities
-  router.get('/facilities', (req, res) => listFacilities(db, req as AuthRequest, res));
-  router.get('/facilities/:id', (req, res) => getFacility(db, req as AuthRequest, res));
-  router.post('/facilities', (req, res) => createFacility(db, req as AuthRequest, res));
-  router.put('/facilities/:id', (req, res) => updateFacility(db, req as AuthRequest, res));
-  router.delete('/facilities/:id', (req, res) => deleteFacility(db, req as AuthRequest, res));
-  router.post('/facilities/reorder', (req, res) => reorderFacilities(db, req as AuthRequest, res));
-  router.post('/facilities/:id/restore', (req, res) => restoreFacility(db, req as AuthRequest, res));
+  // Facilities: same controller as /admin/facilities, so the two cannot drift.
+  registerFacilityRoutes(router, db, '/facilities');
 
   // Age Groups
   router.get('/age-groups', (req, res) => listAgeGroups(db, req as AuthRequest, res));

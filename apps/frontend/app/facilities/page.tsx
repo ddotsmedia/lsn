@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/Button';
@@ -15,7 +15,45 @@ import { usePageMedia } from '@/lib/media';
 /* Data                                                                        */
 /* -------------------------------------------------------------------------- */
 
-const FACILITIES: readonly Facility[] = [
+/** A facility as the API returns it. */
+interface ApiFacility {
+  id: string;
+  name: string;
+  description: string | null;
+  detailed_description: string | null;
+  icon: string | null;
+  features?: string[];
+  amenities?: string[];
+  images?: { url: string }[];
+}
+
+/**
+ * The API's shape into the one the card and modal already take. Icons are
+ * emoji in the seeded rows but the column also holds names like "classroom"
+ * from the older records, so a non-emoji value falls back to a neutral glyph
+ * rather than printing the word.
+ */
+function toFacility(row: ApiFacility, index: number): Facility {
+  const icon = (row.icon ?? '').trim();
+  const isEmoji = icon !== '' && !/^[a-z0-9 _-]+$/i.test(icon);
+  return {
+    id: index + 1,
+    emoji: isEmoji ? icon : '🏫',
+    name: row.name,
+    description: row.description ?? '',
+    features: row.features ?? [],
+    detailedDescription: row.detailed_description ?? row.description ?? '',
+    amenities: row.amenities ?? [],
+    images: (row.images ?? []).map((i) => i.url),
+  };
+}
+
+/**
+ * Built-in copy, kept as the fallback for when the API is unreachable. The
+ * live list comes from admin -> Facilities; this is what the page showed
+ * before it became dynamic, and migration 019 seeded the database from it.
+ */
+const FALLBACK_FACILITIES: readonly Facility[] = [
   {
     id: 1,
     emoji: '🏫',
@@ -291,24 +329,39 @@ export default function FacilitiesPage() {
   const featureImages = ['feature_1', 'feature_2', 'feature_3']
     .map((slot) => pageImages[slot])
     .filter(Boolean);
+  const [facilities, setFacilities] = useState<readonly Facility[]>(FALLBACK_FACILITIES);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  // Managed in admin -> Facilities. On any failure the built-in list stands, so
+  // a backend problem never empties the page.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/facilities`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('failed'))))
+      .then((rows: ApiFacility[]) => {
+        if (cancelled || !Array.isArray(rows) || rows.length === 0) return;
+        setFacilities(rows.map(toFacility));
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
 
   const closeModal = useCallback(() => setSelectedIndex(null), []);
 
   // Wrap around at both ends so navigation never dead-ends.
   const goToPrevious = useCallback(() => {
     setSelectedIndex((current) =>
-      current === null ? null : (current - 1 + FACILITIES.length) % FACILITIES.length,
+      current === null ? null : (current - 1 + facilities.length) % facilities.length,
     );
   }, []);
 
   const goToNext = useCallback(() => {
     setSelectedIndex((current) =>
-      current === null ? null : (current + 1) % FACILITIES.length,
+      current === null ? null : (current + 1) % facilities.length,
     );
   }, []);
 
-  const selectedFacility = selectedIndex === null ? null : (FACILITIES[selectedIndex] ?? null);
+  const selectedFacility = selectedIndex === null ? null : (facilities[selectedIndex] ?? null);
 
   return (
     <>
@@ -422,7 +475,7 @@ export default function FacilitiesPage() {
             </p>
 
             <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:gap-10 lg:grid-cols-3">
-              {FACILITIES.map((facility, index) => (
+              {facilities.map((facility, index) => (
                 <FacilityCard
                   key={facility.id}
                   emoji={facility.emoji}
@@ -595,7 +648,7 @@ export default function FacilitiesPage() {
         onPrevious={goToPrevious}
         onNext={goToNext}
         currentIndex={selectedIndex === null ? undefined : selectedIndex + 1}
-        total={FACILITIES.length}
+        total={facilities.length}
       />
     </>
   );
