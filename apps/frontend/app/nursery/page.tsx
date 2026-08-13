@@ -2,6 +2,7 @@
 
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { PageSections } from '@/components/PageSections';
 import { Button } from '@/components/Button';
 import { Carousel } from '@/components/Carousel';
 import { MissionCard, type MissionCardColor, type MissionCardTitle } from '@/components/MissionCard';
@@ -512,6 +513,10 @@ export default function NurseryPage() {
             </div>
           </div>
         </section>
+        {/* Text written in admin -> Pages -> Text. Renders nothing until a
+            section has content, so the copy above is untouched by default. */}
+        <PageSections pageSlug="about" />
+
       </main>
 
       <Footer />

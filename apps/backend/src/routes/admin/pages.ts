@@ -4,6 +4,7 @@ import type { Pool } from 'pg';
 import { z } from 'zod';
 import { authenticate, createResolveAdmin, requireAdmin } from '../../middleware/auth.js';
 import { createAdminPageImagesRouter } from './pageImages.js';
+import * as content from '../../controllers/pageContentController.js';
 import type { AuthRequest } from '../../middleware/auth.js';
 import { logActivity } from '../../utils/activityLog.js';
 
@@ -219,6 +220,14 @@ export function createAdminPagesRouter(db: Pool): express.Router {
 
   // Nested before /:id so the images routes are matched first.
   router.use('/:id/images', createAdminPageImagesRouter(db));
+
+  // Editable text sections. Before /:id so they are not read as an id.
+  router.get('/:pageId/content', (req, res) => content.listSections(db, req as AuthRequest, res));
+  router.post('/:pageId/content', (req, res) => content.createSection(db, req as AuthRequest, res));
+  router.post('/:pageId/content/reorder', (req, res) => content.reorderSections(db, req as AuthRequest, res));
+  router.put('/:pageId/content/:sectionId', (req, res) => content.updateSection(db, req as AuthRequest, res));
+  router.delete('/:pageId/content/:sectionId', (req, res) => content.deleteSection(db, req as AuthRequest, res));
+  router.post('/:pageId/content/:sectionId/restore', (req, res) => content.restoreSection(db, req as AuthRequest, res));
 
   router.get('/', (req, res) => listPages(db, req as AuthRequest, res));
   router.get('/:id', (req, res) => getPage(db, req as AuthRequest, res));

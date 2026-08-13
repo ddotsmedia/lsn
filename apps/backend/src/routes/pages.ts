@@ -2,6 +2,7 @@ import express from 'express';
 import type { Response } from 'express';
 import type { Pool } from 'pg';
 import type { AuthRequest } from '../middleware/auth.js';
+import { listPublicSections } from '../controllers/pageContentController.js';
 
 /**
  * Public page endpoints, including the images assigned to a page's slots.
@@ -75,6 +76,8 @@ export function createPagesRouter(db: Pool): express.Router {
   const router = express.Router();
   router.get('/', (req, res) => listPages(db, req as AuthRequest, res));
   router.get('/:slug/media', (req, res) => getPageMedia(db, req as AuthRequest, res));
+  // Visible sections that have content. Read-only; edits go through /admin.
+  router.get('/:pageId/content', (req, res) => listPublicSections(db, req as AuthRequest, res));
   return router;
 }
 

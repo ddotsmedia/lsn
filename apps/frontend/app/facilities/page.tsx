@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { PageSections } from '@/components/PageSections';
 import { Button } from '@/components/Button';
 import { FacilityCard } from '@/components/FacilityCard';
 import { FacilityModal, type Facility } from '@/components/FacilityModal';
@@ -634,6 +635,10 @@ export default function FacilitiesPage() {
             </div>
           </div>
         </section>
+        {/* Text written in admin -> Pages -> Text. Renders nothing until a
+            section has content, so the copy above is untouched by default. */}
+        <PageSections pageSlug="facilities" />
+
       </main>
 
       <Footer />

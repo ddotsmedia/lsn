@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { api } from '../../../lib/api';
 import type { PaginatedResponse } from '../../../lib/api';
 import { DataTable } from '../../../components/admin/DataTable';
@@ -85,6 +86,13 @@ export default function PagesPage() {
     { key: 'actions', header: '', className: 'w-[200px]', render: (r) => (
       <div className="flex gap-1">
         <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); openEdit(r); }}>Edit</Button>
+        <Link
+          href={`/admin/pages/${r.id}/content`}
+          onClick={(e) => e.stopPropagation()}
+          className="rounded-lg border border-zinc-700 bg-zinc-800/50 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-800"
+        >
+          Text
+        </Link>
         <Button size="sm" variant={r.status === 'published' ? 'ghost' : 'primary'} onClick={(e) => { e.stopPropagation(); togglePublish(r.id, r.status); }}>
           {r.status === 'published' ? 'Unpublish' : 'Publish'}
         </Button>
