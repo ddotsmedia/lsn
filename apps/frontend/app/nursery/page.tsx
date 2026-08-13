@@ -11,6 +11,7 @@ import { TeamMemberCard } from '@/components/TeamMemberCard';
 import { Butterfly, Circle, Cloud, Flower } from '@/components/Decorations';
 import { HeroBackground } from '@/components/HeroBackground';
 import { usePageMedia } from '@/lib/media';
+import { useTestimonials, type ApiTestimonial } from '@/lib/testimonials';
 import { PageFeatureImages } from '@/components/PageFeatureImages';
 
 /* -------------------------------------------------------------------------- */
@@ -140,33 +141,46 @@ interface Testimonial {
   rating: number;
 }
 
-const TESTIMONIALS: readonly Testimonial[] = [
+/**
+ * Real reviews as published on the live site, kept as the fallback for when
+ * the API is unreachable or nothing is published for this page. Migration 025
+ * seeded the database from this list, so the two agree.
+ */
+const FALLBACK_TESTIMONIALS: readonly ApiTestimonial[] = [
   {
     quote:
       'My daughter has flourished at Little Smarties. The teachers are so caring and professional. I see her learning and growing every single day.',
-    author: 'Fatima Al-Mansouri',
-    location: 'Abu Dhabi',
+    id: 'Fatima Al-Mansouri',
+    author_name: 'Fatima Al-Mansouri',
+    author_title: 'Abu Dhabi',
+    author_image_url: null,
     rating: 5,
   },
   {
     quote:
       'Best decision we made for our son’s early education. The facilities are amazing and the teachers truly know each child individually.',
-    author: 'Mohammad Al-Mazrouei',
-    location: 'Abu Dhabi',
+    id: 'Mohammad Al-Mazrouei',
+    author_name: 'Mohammad Al-Mazrouei',
+    author_title: 'Abu Dhabi',
+    author_image_url: null,
     rating: 5,
   },
   {
     quote:
       'Little Smarties is a home away from home. My twins are happy, engaged, and learning so much. Highly recommended!',
-    author: 'Hana Al-Ketbi',
-    location: 'Abu Dhabi',
+    id: 'Hana Al-Ketbi',
+    author_name: 'Hana Al-Ketbi',
+    author_title: 'Abu Dhabi',
+    author_image_url: null,
     rating: 5,
   },
   {
     quote:
       'Professional, caring, and educational. Everything we look for in a nursery. Our child looks forward to going every day!',
-    author: 'Ahmed Al-Suwaidi',
-    location: 'Abu Dhabi',
+    id: 'Ahmed Al-Suwaidi',
+    author_name: 'Ahmed Al-Suwaidi',
+    author_title: 'Abu Dhabi',
+    author_image_url: null,
     rating: 5,
   },
 ];
@@ -207,16 +221,31 @@ function StarRating({ rating, max = 5 }: StarRatingProps) {
   );
 }
 
-function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
+function TestimonialCard({ testimonial }: { testimonial: ApiTestimonial }) {
   return (
     <figure className="flex h-full flex-col rounded-lg bg-white p-6 shadow-md transition-shadow duration-200 ease-in-out hover:shadow-lg md:p-8">
-      <StarRating rating={testimonial.rating} />
+      {/* Only when a rating was given: a review without one should not be
+          shown as five stars. */}
+      {testimonial.rating ? <StarRating rating={testimonial.rating} /> : null}
       <blockquote className="mt-4 grow text-base leading-relaxed text-gray-700">
         &ldquo;{testimonial.quote}&rdquo;
       </blockquote>
-      <figcaption className="mt-5 border-t border-gray-100 pt-4">
-        <span className="block font-semibold text-gray-800">{testimonial.author}</span>
-        <span className="block text-sm text-gray-600">{testimonial.location}</span>
+      <figcaption className="mt-5 flex items-center gap-3 border-t border-gray-100 pt-4">
+        {testimonial.author_image_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={testimonial.author_image_url}
+            alt=""
+            loading="lazy"
+            className="h-11 w-11 shrink-0 rounded-full object-cover"
+          />
+        )}
+        <span>
+          <span className="block font-semibold text-gray-800">{testimonial.author_name}</span>
+          {testimonial.author_title && (
+            <span className="block text-sm text-gray-600">{testimonial.author_title}</span>
+          )}
+        </span>
       </figcaption>
     </figure>
   );
@@ -230,6 +259,9 @@ export default function NurseryPage() {
   // Hero image uploaded via admin → Media Library → Pages. Absent until one is
   // set, in which case the hero keeps its gradient.
   const pageImages = usePageMedia('nursery');
+
+  // Managed in admin -> Testimonials. Falls back to the built-in reviews.
+  const testimonials = useTestimonials('about', FALLBACK_TESTIMONIALS);
   return (
     <>
       <Header />
@@ -470,7 +502,7 @@ export default function NurseryPage() {
             {/* Mobile and tablet: swipeable carousel. */}
             <div className="lg:hidden">
               <Carousel
-                items={TESTIMONIALS}
+                items={testimonials}
                 ariaLabel="Parent testimonials"
                 renderItem={(testimonial) => (
                   <div className="h-full px-1 pb-2">
@@ -482,8 +514,8 @@ export default function NurseryPage() {
 
             {/* Desktop: all four side by side. */}
             <div className="hidden gap-6 lg:grid lg:grid-cols-4 lg:gap-8">
-              {TESTIMONIALS.map((testimonial) => (
-                <TestimonialCard key={testimonial.author} testimonial={testimonial} />
+              {testimonials.map((testimonial) => (
+                <TestimonialCard key={testimonial.id} testimonial={testimonial} />
               ))}
             </div>
           </div>

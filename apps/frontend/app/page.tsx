@@ -17,6 +17,7 @@ import {
 import { PartnerLogo } from '@/components/PartnerLogo';
 import { PageFeatureImages, PageBackground } from '@/components/PageFeatureImages';
 import { usePageMedia } from '@/lib/media';
+import { useTestimonials, type ApiTestimonial } from '@/lib/testimonials';
 
 interface FeaturedVideo {
   id: string;
@@ -32,11 +33,6 @@ interface AgeGroup {
   description: string;
   icon: string;
   experiences: string[];
-}
-
-interface Testimonial {
-  quote: string;
-  author: string;
 }
 
 /**
@@ -127,26 +123,30 @@ const ageGroups: AgeGroup[] = [
   },
 ];
 
-/** Real reviews as published on the live site. */
-const testimonials: Testimonial[] = [
+/**
+ * Real reviews as published on the live site, kept as the fallback for when
+ * the API is unreachable or nothing is published. Migration 025 seeded the
+ * database from this list, so the two agree.
+ */
+const FALLBACK_TESTIMONIALS: ApiTestimonial[] = [
   {
     quote:
       'My son absolutely loved it here! The principal was kind and inspiring, and the teachers were loving and caring. Thank you Little Smarties for setting the perfect foundation for our children.',
-    author: 'Al Salam St, Abu Dhabi',
+    author_name: 'Al Salam St, Abu Dhabi', author_title: null, author_image_url: null, rating: null, id: 'Al Salam St, Abu Dhabi',
   },
   {
     quote:
       'The kindest staff and great attention to small details and hygiene. My little girl loves it! I especially love how they engage the kids in Arabic culture and language through their curriculum.',
-    author: 'Hasnaa Bahajjoub',
+    author_name: 'Hasnaa Bahajjoub', author_title: null, author_image_url: null, rating: null, id: 'Hasnaa Bahajjoub',
   },
   {
     quote:
       'The nursery exceeded all of my expectations. The staff is friendly, knowledgeable, and the facility is clean and well maintained. I highly recommend it to anyone.',
-    author: 'Nuha Mohammed Abujame',
+    author_name: 'Nuha Mohammed Abujame', author_title: null, author_image_url: null, rating: null, id: 'Nuha Mohammed Abujame',
   },
   {
     quote: 'One of the best nurseries in terms of care and education. The location is awesome!',
-    author: 'Fatma Ali',
+    author_name: 'Fatma Ali', author_title: null, author_image_url: null, rating: null, id: 'Fatma Ali',
   },
 ];
 
@@ -175,6 +175,10 @@ export default function Home() {
   // Images uploaded in admin -> Media Library -> Pages -> Home. usePageMedia
   // fails quiet, so a request problem leaves the page exactly as it was.
   const pageImages = usePageMedia('home');
+
+  // Managed in admin -> Testimonials. Falls back to the built-in reviews when
+  // nothing is published for this page or the request fails.
+  const testimonials = useTestimonials('home', FALLBACK_TESTIMONIALS);
 
   const [partners, setPartners] = useState<Partner[]>([]);
   const [partnersLoading, setPartnersLoading] = useState(true);
@@ -413,14 +417,38 @@ export default function Home() {
               <div className="grid flex-1 grid-cols-1 gap-6 md:grid-cols-3">
                 {visibleTestimonials.map((t, idx) => (
                   <div
-                    key={`${t.author}-${idx}`}
+                    key={`${t.id}-${idx}`}
                     className="relative rounded-2xl border border-gray-100 bg-white p-6 text-left shadow-sm"
                   >
-                    <div className="mb-2 text-amber-400">★★★★★</div>
+                    {/* Only drawn when a rating was given. These reviews were
+                        shown with five hardcoded stars regardless; a review
+                        with no rating should not claim one. */}
+                    {t.rating ? (
+                      <div className="mb-2 text-amber-400" aria-label={`${t.rating} out of 5 stars`}>
+                        {'★'.repeat(t.rating)}
+                        <span className="text-gray-300">{'★'.repeat(5 - t.rating)}</span>
+                      </div>
+                    ) : null}
                     <p className="text-sm italic leading-relaxed text-gray-600">
                       &ldquo;{t.quote}&rdquo;
                     </p>
-                    <p className="mt-4 text-sm font-bold text-gray-900">{t.author}</p>
+                    <div className="mt-4 flex items-center gap-3">
+                      {t.author_image_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={t.author_image_url}
+                          alt=""
+                          loading="lazy"
+                          className="h-10 w-10 rounded-full object-cover"
+                        />
+                      )}
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{t.author_name}</p>
+                        {t.author_title && (
+                          <p className="text-xs text-gray-500">{t.author_title}</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
