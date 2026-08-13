@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { api } from '../../../lib/api';
 import type { PaginatedResponse } from '../../../lib/api';
 import { DataTable } from '../../../components/admin/DataTable';
@@ -35,6 +35,9 @@ interface EventItem {
   event_type: string;
   age_groups: string | null;
   is_published: boolean;
+  capacity: number | null;
+  current_registrations: number;
+  sort_order: number;
   created_at: string;
 }
 
@@ -71,6 +74,7 @@ interface EventForm {
   event_type: string;
   age_groups: string;
   image_url: string;
+  capacity: string;
   is_published: boolean;
 }
 
@@ -80,7 +84,7 @@ const EMPTY_NEWS: NewsForm = {
 
 const EMPTY_EVENT: EventForm = {
   title: '', description: '', event_date: '', event_time: '', end_time: '',
-  location: '', event_type: 'General', age_groups: '', image_url: '', is_published: true,
+  location: '', event_type: 'General', age_groups: '', image_url: '', capacity: '', is_published: true,
 };
 
 type Errors = Record<string, string | undefined>;
@@ -172,6 +176,9 @@ export default function NewsAndEventsPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; tab: Tab } | null>(null);
 
+  /** Which row a drag started on. A ref, not state — see rowProps below. */
+  const dragFrom = useRef<number | null>(null);
+
   const isNews = tab === 'news';
 
   /* ---------------------------------------------------------- data loading */
@@ -248,6 +255,7 @@ export default function NewsAndEventsPage() {
       event_type: item.event_type || 'General',
       age_groups: item.age_groups || '',
       image_url: item.image_url || '',
+      capacity: item.capacity == null ? '' : String(item.capacity),
       is_published: item.is_published !== false,
     });
     setErrors({});
@@ -320,6 +328,80 @@ export default function NewsAndEventsPage() {
     } finally { setImageBusy(false); }
   };
 
+  /* --------------------------------------------------------- event image */
+
+  const fail = (message: string) => setToast({ message, type: 'error' });
+
+  /** Uploads to Cloudinary. Needs a saved event, since the image keys to its id. */
+  const uploadEventImage = async (file: File | undefined) => {
+    if (!file || !editId) return;
+    if (!file.type.startsWith('image/')) { fail('Please choose an image file'); return; }
+    if (file.size > 10 * 1024 * 1024) { fail('Image must be 10 MB or smaller'); return; }
+
+    setImageBusy(true);
+    try {
+      const body = new FormData();
+      body.append('image', file);
+      const token = localStorage.getItem('lsn_token');
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/events/${editId}/image`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body,
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error || `Upload failed (${res.status})`);
+      }
+      const data = (await res.json()) as { imageUrl?: string };
+      if (data.imageUrl) setEventForm((f) => ({ ...f, image_url: data.imageUrl as string }));
+      setToast({ message: 'Image uploaded', type: 'success' });
+      fetchData('events', eventsPage.page);
+    } catch (err) {
+      fail(err instanceof Error ? err.message : 'Upload failed');
+    } finally { setImageBusy(false); }
+  };
+
+  const removeEventImage = async () => {
+    if (!editId) return;
+    setImageBusy(true);
+    try {
+      const token = localStorage.getItem('lsn_token');
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/events/${editId}/image`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!res.ok) throw new Error(`Failed (${res.status})`);
+      setEventForm((f) => ({ ...f, image_url: '' }));
+      setToast({ message: 'Image removed', type: 'success' });
+      fetchData('events', eventsPage.page);
+    } catch (err) {
+      fail(err instanceof Error ? err.message : 'Failed to remove image');
+    } finally { setImageBusy(false); }
+  };
+
+  /** Persists drag-to-reorder for the events list. */
+  const commitEventOrder = async (from: number, to: number) => {
+    if (from === to) return;
+    const next = [...events];
+    const [moved] = next.splice(from, 1);
+    if (moved) next.splice(to, 0, moved);
+    setEvents(next); // optimistic
+    try {
+      await api('/admin/events/reorder', {
+        method: 'POST',
+        body: JSON.stringify({
+          ids: next.map((e) => e.id),
+          // Positions are absolute, so page 2 must not restart at zero.
+          start: (eventsPage.page - 1) * eventsPage.limit,
+        }),
+      });
+      setToast({ message: 'Order saved', type: 'success' });
+    } catch (err) {
+      fail(err instanceof Error ? err.message : 'Failed to save order');
+      fetchData('events', eventsPage.page);
+    }
+  };
+
   /* ----------------------------------------------------------------- save */
 
   const save = async () => {
@@ -348,6 +430,7 @@ export default function NewsAndEventsPage() {
           event_type: eventForm.event_type,
           age_groups: eventForm.age_groups.trim() || null,
           image_url: eventForm.image_url.trim() || null,
+          capacity: eventForm.capacity === '' ? null : Number(eventForm.capacity),
           is_published: eventForm.is_published,
         };
 
@@ -438,7 +521,22 @@ export default function NewsAndEventsPage() {
   ];
 
   const eventColumns: Column<EventItem>[] = [
-    { key: 'title', header: 'Title', sortable: true, render: (r) => <span className="font-medium">{r.title}</span> },
+    {
+      key: 'drag', header: '', className: 'w-8',
+      render: () => <span className="cursor-grab select-none text-zinc-600" aria-hidden>⠿</span>,
+    },
+    {
+      key: 'title', header: 'Title', sortable: true,
+      render: (r) => (
+        <span className="flex items-center gap-2">
+          {r.image_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={r.image_url} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />
+          )}
+          <span className="font-medium">{r.title}</span>
+        </span>
+      ),
+    },
     { key: 'event_date', header: 'Date', render: (r) => <span className="text-xs text-zinc-400">{formatDate(r.event_date)}</span> },
     {
       key: 'event_type', header: 'Type',
@@ -447,6 +545,21 @@ export default function NewsAndEventsPage() {
           {r.event_type || 'General'}
         </span>
       ),
+    },
+    {
+      key: 'capacity', header: 'Bookings',
+      render: (r) => {
+        const booked = r.current_registrations ?? 0;
+        if (r.capacity == null) {
+          return <span className="text-xs text-zinc-500">{booked} · no limit</span>;
+        }
+        const full = booked >= r.capacity;
+        return (
+          <span className={`text-xs ${full ? 'text-amber-400' : 'text-zinc-400'}`}>
+            {booked} / {r.capacity}{full ? ' · full' : ''}
+          </span>
+        );
+      },
     },
     { key: 'is_published', header: 'Status', render: (r) => <StatusPill published={r.is_published} /> },
     {
@@ -528,6 +641,12 @@ export default function NewsAndEventsPage() {
             emptyMessage={search ? 'No news matches that search.' : 'No news yet. Use “+ Add News” to publish the first item.'}
           />
         ) : (
+          <>
+          {events.length > 1 && (
+            <p className="mb-2 text-xs text-zinc-500">
+              Drag a row to change the order events appear in on the public page.
+            </p>
+          )}
           <DataTable
             columns={eventColumns}
             data={events}
@@ -535,7 +654,22 @@ export default function NewsAndEventsPage() {
             pagination={eventsPage}
             onPageChange={(p) => fetchData('events', p)}
             emptyMessage={search ? 'No events match that search.' : 'No events yet. Use “+ Add Event” to create one.'}
+            rowProps={(_row, index) => ({
+              draggable: true,
+              // The index has to come from a ref: onDrop fires before a state
+              // update from onDragStart would have re-rendered.
+              onDragStart: () => { dragFrom.current = index; },
+              onDragOver: (e) => e.preventDefault(),
+              onDrop: () => {
+                const from = dragFrom.current;
+                dragFrom.current = null;
+                if (from !== null) void commitEventOrder(from, index);
+              },
+              onDragEnd: () => { dragFrom.current = null; },
+              className: 'cursor-grab active:cursor-grabbing',
+            })}
           />
+          </>
         )}
       </div>
 
@@ -676,9 +810,65 @@ export default function NewsAndEventsPage() {
                 </FormField>
               </div>
 
-              <FormField label="Image URL" error={errors.image_url}>
-                <Input value={eventForm.image_url} onChange={(e) => setEventField('image_url', e.target.value)} placeholder="https://..." />
+              <FormField label="Capacity">
+                <Input
+                  type="number"
+                  min={0}
+                  value={eventForm.capacity}
+                  onChange={(e) => setEventField('capacity', e.target.value)}
+                  placeholder="Leave blank for unlimited"
+                />
+                {editId && (
+                  <p className="mt-1 text-xs text-zinc-600">
+                    {events.find((e) => e.id === editId)?.current_registrations ?? 0} booked so far.
+                    Bookings are counted automatically and cannot exceed this number.
+                  </p>
+                )}
               </FormField>
+
+              {/* An image can only be uploaded once the event has an id, so a
+                  new event takes a URL and an existing one takes a file. */}
+              {editId ? (
+                <FormField label="Event image">
+                  <div className="space-y-2">
+                    {eventForm.image_url.trim() && (
+                      <div className="relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={eventForm.image_url}
+                          alt=""
+                          className="h-36 w-full rounded-lg border border-zinc-800 object-cover"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void removeEventImage()}
+                          disabled={imageBusy}
+                          aria-label="Remove image"
+                          className="absolute right-2 top-2 rounded bg-red-500/80 px-2 py-0.5 text-xs text-white hover:bg-red-500 disabled:opacity-50"
+                        >
+                          {imageBusy ? '…' : '✕'}
+                        </button>
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => void uploadEventImage(e.target.files?.[0])}
+                      className="block w-full cursor-pointer rounded-lg border border-zinc-800 bg-[#0c0c14] p-2 text-sm text-zinc-300 file:mr-3 file:rounded file:border-0 file:bg-zinc-800 file:px-3 file:py-1 file:text-xs file:text-zinc-200"
+                    />
+                    <p className="text-xs text-zinc-600">Uploaded to Cloudinary. Max 10 MB.</p>
+                  </div>
+                </FormField>
+              ) : (
+                <FormField label="Image URL" error={errors.image_url}>
+                  <Input
+                    value={eventForm.image_url}
+                    onChange={(e) => setEventField('image_url', e.target.value)}
+                    placeholder="https://… — or save first, then upload a file"
+                  />
+                </FormField>
+              )}
               {eventForm.image_url.trim() && !errors.image_url && (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img

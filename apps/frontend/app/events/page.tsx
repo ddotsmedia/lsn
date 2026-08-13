@@ -6,6 +6,7 @@ import Footer from '@/components/Footer';
 import { PageSections } from '@/components/PageSections';
 import { Modal } from '@/components/Modal';
 import { Button } from '@/components/Button';
+import Link from 'next/link';
 
 interface ApiEvent {
   id: string;
@@ -18,6 +19,8 @@ interface ApiEvent {
   image_url?: string | null;
   event_type: string;
   age_groups?: string | null;
+  capacity?: number | null;
+  current_registrations?: number;
 }
 
 /** A news item: an announcement with a date and a body, no time or place. */
@@ -30,6 +33,11 @@ interface ApiNews {
 }
 
 const API = process.env.NEXT_PUBLIC_API_URL;
+
+/** The categories in use, matching the admin Events tab. */
+const CATEGORIES = [
+  'Celebration', 'Learning', 'Workshop', 'Sports', 'Performance', 'Exhibition', 'Meeting',
+] as const;
 
 const TYPE_STYLES: Record<string, string> = {
   Celebration: 'bg-red-100 text-red-700',
@@ -130,10 +138,27 @@ function EventCard({ event, past, onOpen }: { event: ApiEvent; past: boolean; on
             {event.description}
           </p>
         )}
-        <div className="mt-auto">
-          <Button variant="secondary" size="sm" ariaLabel={`Details for ${event.title}`}>
+        {event.capacity != null && (
+          <p className="mb-3 text-xs font-medium text-gray-500">
+            {event.current_registrations != null && event.current_registrations >= event.capacity
+              ? 'Fully booked'
+              : `${event.capacity - (event.current_registrations ?? 0)} of ${event.capacity} places left`}
+          </p>
+        )}
+
+        <div className="mt-auto flex flex-wrap items-center gap-3">
+          <Button variant="secondary" size="sm" ariaLabel={`Quick look at ${event.title}`}>
             {past ? 'View Details' : 'Learn More'}
           </Button>
+          {/* A real link, so an event can be opened in a new tab, shared and
+              found by search engines. The modal alone has no address. */}
+          <Link
+            href={`/events/${event.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="text-sm font-semibold text-red-600 underline hover:text-red-700"
+          >
+            Full details
+          </Link>
         </div>
       </div>
     </article>
@@ -205,6 +230,8 @@ export default function EventsPage() {
   const [error, setError] = useState(false);
   const [selected, setSelected] = useState<ApiEvent | null>(null);
   const [selectedNews, setSelectedNews] = useState<ApiNews | null>(null);
+  // Category filter for the upcoming list. '' means every category.
+  const [category, setCategory] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -213,7 +240,8 @@ export default function EventsPage() {
       // News is its own content type now, managed on the News tab of the admin
       // panel. This section used to show past events instead.
       const [u, n] = await Promise.all([
-        fetch(`${API}/events?scope=upcoming`).then((r) => (r.ok ? r.json() : Promise.reject())),
+        fetch(`${API}/events?scope=upcoming${category ? `&category=${encodeURIComponent(category)}` : ''}`)
+          .then((r) => (r.ok ? r.json() : Promise.reject())),
         fetch(`${API}/news`).then((r) => (r.ok ? r.json() : Promise.reject())),
       ]);
       setUpcoming(Array.isArray(u) ? u : []);
@@ -223,7 +251,7 @@ export default function EventsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [category]);
 
   useEffect(() => {
     void load();
@@ -284,9 +312,35 @@ export default function EventsPage() {
                 >
                   Upcoming Events
                 </h2>
+
+                {/* Category filter. The list is refetched rather than filtered
+                    in the browser, so it stays correct however many events
+                    there eventually are. */}
+                <div className="mb-8 flex flex-wrap justify-center gap-2">
+                  {[{ value: '', label: 'All' }, ...CATEGORIES.map((c) => ({ value: c, label: c }))].map(
+                    (option) => (
+                      <button
+                        key={option.value || 'all'}
+                        type="button"
+                        onClick={() => setCategory(option.value)}
+                        aria-pressed={category === option.value}
+                        className={`min-h-11 rounded-full px-4 text-sm font-semibold transition-colors ${
+                          category === option.value
+                            ? 'bg-red-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    )
+                  )}
+                </div>
+
                 {upcoming.length === 0 ? (
                   <p className="text-center text-base text-gray-600">
-                    Nothing scheduled right now — check back soon.
+                    {category
+                      ? `Nothing scheduled under ${category} right now.`
+                      : 'Nothing scheduled right now — check back soon.'}
                   </p>
                 ) : (
                   <EventGrid events={upcoming} past={false} onOpen={open} />

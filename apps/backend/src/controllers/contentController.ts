@@ -153,18 +153,57 @@ export async function getEvents(db: Pool, req: AuthRequest, res: Response): Prom
 
     if (scope === 'upcoming') {
       where += ' AND event_date >= CURRENT_DATE';
-      order = 'event_date ASC NULLS LAST';
+      // Upcoming is the list admins arrange by hand, so sort_order leads and
+      // the date only breaks ties. Migration 026 seeds sort_order from the
+      // date order, so this matches what the page showed before.
+      order = 'sort_order ASC, event_date ASC NULLS LAST';
     } else if (scope === 'past') {
       where += ' AND event_date < CURRENT_DATE';
     }
 
+    // ?category=Workshop narrows the list. Matched case-insensitively so a
+    // filter button does not have to know the stored capitalisation.
+    const params: unknown[] = [];
+    const category = typeof req.query.category === 'string' ? req.query.category.trim() : '';
+    if (category && category.toLowerCase() !== 'all') {
+      params.push(category);
+      where += ` AND lower(event_type) = lower($${params.length})`;
+    }
+
     const result = await db.query(
-      `SELECT * FROM news_events ${where} ORDER BY ${order}, event_time ASC NULLS LAST`
+      `SELECT * FROM news_events ${where}
+        ORDER BY ${order}, sort_order ASC, event_time ASC NULLS LAST`,
+      params
     );
     res.json(result.rows as NewsEvent[]);
   } catch (error) {
     console.error('getEvents failed', error);
     res.status(500).json({ error: 'Failed to fetch events' });
+  }
+}
+
+/**
+ * A single published event, for the detail page. Unpublished and deleted rows
+ * are 404 rather than 403: a visitor should not be able to tell the difference
+ * between an event that is hidden and one that never existed.
+ */
+export async function getEventById(db: Pool, req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const result = await db.query(
+      `SELECT * FROM news_events
+        WHERE id = $1 AND is_published = TRUE AND deleted_at IS NULL`,
+      [req.params.id]
+    );
+    if (result.rows.length === 0) { res.status(404).json({ error: 'Event not found' }); return; }
+    res.json(result.rows[0] as NewsEvent);
+  } catch (error) {
+    // An invalid uuid reaches here as a cast error; it is a bad id, not a fault.
+    if ((error as { code?: string }).code === '22P02') {
+      res.status(404).json({ error: 'Event not found' });
+      return;
+    }
+    console.error('getEventById failed', error);
+    res.status(500).json({ error: 'Failed to fetch event' });
   }
 }
 

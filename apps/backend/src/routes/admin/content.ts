@@ -6,6 +6,8 @@ import { authenticate, createResolveAdmin, requireAdmin } from '../../middleware
 import type { AuthRequest } from '../../middleware/auth.js';
 import { logActivity } from '../../utils/activityLog.js';
 import { registerFacilityRoutes } from './facilities.js';
+import multer from 'multer';
+import * as eventExtras from '../../controllers/eventExtrasController.js';
 
 // ---------- Schemas ----------
 
@@ -39,6 +41,10 @@ const NewsEventSchema = z.object({
   event_type: optionalText(40),
   age_groups: optionalText(255),
   is_published: z.boolean().optional(),
+  capacity: z.preprocess((v) => (v === '' || v === null ? null : typeof v === 'string' ? Number(v) : v), z.number().int().min(0).nullable().optional()),
+  sort_order: z.number().int().min(0).optional(),
+  latitude: z.preprocess((v) => (v === '' || v === null ? null : typeof v === 'string' ? Number(v) : v), z.number().min(-90).max(90).nullable().optional()),
+  longitude: z.preprocess((v) => (v === '' || v === null ? null : typeof v === 'string' ? Number(v) : v), z.number().min(-180).max(180).nullable().optional()),
 });
 
 const FacilitySchema = z.object({
@@ -100,8 +106,10 @@ async function listEvents(db: Pool, req: AuthRequest, res: Response): Promise<vo
     const total = Number(countResult.rows[0]?.count ?? 0);
 
     const dataResult = await db.query(
+      // sort_order leads so a drag in the admin list stays where it was put;
+      // without it the list would snap back to date order on the next load.
       `SELECT * FROM news_events ${where}
-       ORDER BY event_date DESC NULLS LAST, created_at DESC
+       ORDER BY sort_order ASC, event_date DESC NULLS LAST, created_at DESC
        LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
       [...params, limit, offset]
     );
@@ -130,13 +138,14 @@ async function createEvent(db: Pool, req: AuthRequest, res: Response): Promise<v
     const result = await db.query(
       `INSERT INTO news_events
          (title, description, event_date, event_time, end_time, location,
-          image_url, event_type, age_groups, is_published)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+          image_url, event_type, age_groups, is_published, capacity, latitude, longitude, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
       [
         data.title, data.description, data.event_date,
         data.event_time ?? null, data.end_time ?? null, data.location ?? null,
         data.image_url ?? null, data.event_type ?? 'General',
         data.age_groups ?? null, data.is_published ?? true,
+        data.capacity ?? null, data.latitude ?? null, data.longitude ?? null, req.userId ?? null,
       ]
     );
     await logActivity(db, req.userId, 'create', 'news_event', result.rows[0]?.id as string, { title: data.title });
@@ -159,6 +168,7 @@ async function updateEvent(db: Pool, req: AuthRequest, res: Response): Promise<v
     const fields = [
       'title', 'description', 'event_date', 'event_time', 'end_time',
       'location', 'image_url', 'event_type', 'age_groups', 'is_published',
+      'capacity', 'sort_order', 'latitude', 'longitude',
     ] as const;
     for (const f of fields) {
       if (data[f] === undefined) continue;
@@ -487,6 +497,25 @@ async function deleteAgeGroup(db: Pool, req: AuthRequest, res: Response): Promis
  * well as under /admin/content. The admin UI uses /admin/events; the recycle
  * bin still calls /admin/content/events, so both stay live.
  */
+// 10 MB, image only. memoryStorage streams the buffer straight to Cloudinary.
+const eventUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype?.startsWith('image/')) cb(null, true);
+    else cb(new Error('Only image files are allowed'));
+  },
+});
+
+const handleEventImage: express.RequestHandler = (req, res, next) => {
+  eventUpload.single('image')(req, res, (err: unknown) => {
+    if (!err) { next(); return; }
+    const message = err instanceof Error ? err.message : 'Upload failed';
+    const tooBig = message.includes('File too large');
+    res.status(400).json({ error: tooBig ? 'Image must be 10 MB or smaller' : message });
+  });
+};
+
 export function createAdminEventsRouter(db: Pool): express.Router {
   const router = express.Router();
   const resolveAdmin = createResolveAdmin(db);
@@ -499,6 +528,9 @@ export function createAdminEventsRouter(db: Pool): express.Router {
   router.put('/:id', (req, res) => updateEvent(db, req as AuthRequest, res));
   router.delete('/:id', (req, res) => deleteEvent(db, req as AuthRequest, res));
   router.post('/:id/restore', (req, res) => restoreEvent(db, req as AuthRequest, res));
+  router.post('/reorder', (req, res) => eventExtras.reorderEvents(db, req as AuthRequest, res));
+  router.post('/:id/image', handleEventImage, (req, res) => eventExtras.uploadEventImage(db, req as AuthRequest, res));
+  router.delete('/:id/image', (req, res) => eventExtras.deleteEventImage(db, req as AuthRequest, res));
 
   return router;
 }

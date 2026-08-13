@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { ReactNode } from 'react';
+import type { HTMLAttributes, ReactNode } from 'react';
 
 export interface Column<T> {
   key: string;
@@ -25,6 +25,11 @@ interface DataTableProps<T> {
   onSort?: (key: string, dir: 'asc' | 'desc') => void;
   onRowClick?: (row: T) => void;
   emptyMessage?: string;
+  /**
+   * Extra attributes for each <tr>, by row. Lets a caller make rows draggable
+   * without every other table having to know about dragging.
+   */
+  rowProps?: (row: T, index: number) => HTMLAttributes<HTMLTableRowElement>;
 }
 
 export function DataTable<T = Record<string, unknown>>({
@@ -36,6 +41,7 @@ export function DataTable<T = Record<string, unknown>>({
   onSort,
   onRowClick,
   emptyMessage = 'No data found',
+  rowProps,
 }: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -87,13 +93,16 @@ export function DataTable<T = Record<string, unknown>>({
                 </td>
               </tr>
             ) : (
-              data.map((row, i) => (
+              data.map((row, i) => {
+                const extra = rowProps?.(row, i) ?? {};
+                return (
                 <tr
                   key={String((row as any)?.id ?? i)}
+                  {...extra}
                   className={`border-b border-zinc-800/30 transition-colors ${
                     onRowClick ? 'cursor-pointer hover:bg-zinc-800/30' : ''
-                  }`}
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  } ${extra.className || ''}`}
+                  onClick={onRowClick ? () => onRowClick(row) : extra.onClick}
                 >
                   {columns.map((col) => (
                     <td key={col.key} className={`px-4 py-3 text-zinc-300 ${col.className || ''}`}>
@@ -101,7 +110,8 @@ export function DataTable<T = Record<string, unknown>>({
                     </td>
                   ))}
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>
