@@ -6,6 +6,7 @@ import type { PaginatedResponse } from '../../../lib/api';
 import { DataTable } from '../../../components/admin/DataTable';
 import type { Column } from '../../../components/admin/DataTable';
 import { StatusBadge, SearchBar, FilterSelect, Button, Modal, FormField, Input, Textarea, Toast, ConfirmDialog } from '../../../components/admin/shared';
+import { PageImagesTab } from '../../../components/admin/PageImagesTab';
 
 interface Page {
   id: string; title: string; slug: string; content: string; status: string;
@@ -26,6 +27,8 @@ export default function PagesPage() {
   const [form, setForm] = useState(EMPTY);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  // Images live on a saved page, so the tab only appears once there is an id.
+  const [modalTab, setModalTab] = useState<'content' | 'images'>('content');
 
   const fetchData = useCallback(async (page = 1) => {
     setLoading(true);
@@ -43,6 +46,7 @@ export default function PagesPage() {
   const openEdit = (p: Page) => {
     setEditId(p.id);
     setForm({ title: p.title, slug: p.slug, content: p.content || '', status: p.status, meta_title: p.meta_title || '', meta_description: p.meta_description || '', meta_keywords: p.meta_keywords || '', og_image: p.og_image || '' });
+    setModalTab('content');
     setShowModal(true);
   };
 
@@ -98,13 +102,44 @@ export default function PagesPage() {
             { value: 'draft', label: 'Draft' }, { value: 'published', label: 'Published' }, { value: 'archived', label: 'Archived' },
           ]} allLabel="All Status" />
         </div>
-        <Button onClick={() => { setEditId(null); setForm(EMPTY); setShowModal(true); }}>+ New Page</Button>
+        <Button onClick={() => { setEditId(null); setForm(EMPTY); setModalTab('content'); setShowModal(true); }}>+ New Page</Button>
       </div>
 
       <DataTable columns={columns} data={data} loading={loading} pagination={pagination} onPageChange={(p) => fetchData(p)} />
 
       <Modal open={showModal} onClose={() => setShowModal(false)} title={editId ? 'Edit Page' : 'New Page'} maxWidth="max-w-3xl">
         <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+          {/* Only offered for a saved page: image slots are keyed to its id. */}
+          {editId && (
+            <div className="flex gap-1 border-b border-zinc-800" role="tablist" aria-label="Page editor sections">
+              {([['content', 'Content & SEO'], ['images', 'Images']] as const).map(([key, label]) => {
+                const active = modalTab === key;
+                return (
+                  <button
+                    key={key}
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setModalTab(key)}
+                    className={`-mb-px rounded-t-lg border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+                      active
+                        ? 'border-emerald-500 text-emerald-400'
+                        : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {editId && modalTab === 'images' ? (
+            <PageImagesTab
+              pageId={editId}
+              onToast={(message, type) => setToast({ message, type })}
+            />
+          ) : (
+          <>
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Title"><Input value={form.title} onChange={(e) => setField('title', e.target.value)} /></FormField>
             <FormField label="Slug"><Input value={form.slug} onChange={(e) => setField('slug', e.target.value)} placeholder="url-friendly-name" /></FormField>
@@ -132,6 +167,8 @@ export default function PagesPage() {
             <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
             <Button onClick={save}>{editId ? 'Update' : 'Create'}</Button>
           </div>
+          </>
+          )}
         </div>
       </Modal>
 

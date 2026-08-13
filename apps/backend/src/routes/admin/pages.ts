@@ -3,6 +3,7 @@ import type { Response } from 'express';
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import { authenticate, createResolveAdmin, requireAdmin } from '../../middleware/auth.js';
+import { createAdminPageImagesRouter } from './pageImages.js';
 import type { AuthRequest } from '../../middleware/auth.js';
 import { logActivity } from '../../utils/activityLog.js';
 
@@ -215,6 +216,9 @@ export function createAdminPagesRouter(db: Pool): express.Router {
   const resolveAdmin = createResolveAdmin(db);
 
   router.use(authenticate, resolveAdmin, requireAdmin);
+
+  // Nested before /:id so the images routes are matched first.
+  router.use('/:id/images', createAdminPageImagesRouter(db));
 
   router.get('/', (req, res) => listPages(db, req as AuthRequest, res));
   router.get('/:id', (req, res) => getPage(db, req as AuthRequest, res));

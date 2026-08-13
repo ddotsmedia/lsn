@@ -8,6 +8,8 @@ import { FacilityCard } from '@/components/FacilityCard';
 import { FacilityModal, type Facility } from '@/components/FacilityModal';
 import { SafetyCard, type SafetyCardColor } from '@/components/SafetyCard';
 import { Cloud, Flower } from '@/components/Decorations';
+import { HeroBackground } from '@/components/HeroBackground';
+import { usePageMedia } from '@/lib/media';
 
 /* -------------------------------------------------------------------------- */
 /* Data                                                                        */
@@ -281,6 +283,14 @@ const TECHNOLOGY_FEATURES: readonly string[] = [
 /* -------------------------------------------------------------------------- */
 
 export default function FacilitiesPage() {
+  // Slots set in admin → Pages → Facilities → Images. Absent until one is set,
+  // in which case the hero keeps its gradient.
+  const pageImages = usePageMedia('facilities');
+  // Only the slots that have been filled, in order, so two images lay out as a
+  // pair rather than leaving a gap where the third would be.
+  const featureImages = ['feature_1', 'feature_2', 'feature_3']
+    .map((slot) => pageImages[slot])
+    .filter(Boolean);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   const closeModal = useCallback(() => setSelectedIndex(null), []);
@@ -312,6 +322,7 @@ export default function FacilitiesPage() {
           aria-labelledby="hero-heading"
           className="relative flex min-h-75 items-center justify-center overflow-hidden bg-gradient-to-br from-blue-800 to-red-600 px-4 lg:min-h-125"
         >
+          <HeroBackground image={pageImages.hero} />
           <Flower className="absolute left-[7%] top-[20%] w-14 text-white opacity-20 lg:w-24" />
           <Cloud className="absolute bottom-[14%] right-[8%] w-28 text-white opacity-20 lg:w-44" />
           <Cloud className="absolute left-[12%] bottom-[18%] w-20 text-white opacity-20 lg:w-32" />
@@ -359,6 +370,40 @@ export default function FacilitiesPage() {
             </div>
           </div>
         </section>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* 2b. Feature photographs                                          */}
+        {/*                                                                   */}
+        {/* Set in admin -> Pages -> Facilities -> Images. The whole section  */}
+        {/* is skipped while every slot is empty, so nothing reserves space   */}
+        {/* on a page that has no photographs yet.                           */}
+        {/* ---------------------------------------------------------------- */}
+        {featureImages.length > 0 && (
+          <section aria-label="Photographs of our facilities" className="bg-white pb-16 md:pb-24">
+            <div className="mx-auto max-w-6xl px-4 md:px-6">
+              <div
+                className={`grid gap-6 ${
+                  featureImages.length === 1
+                    ? 'grid-cols-1'
+                    : featureImages.length === 2
+                      ? 'grid-cols-1 sm:grid-cols-2'
+                      : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+                }`}
+              >
+                {featureImages.map((image) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={image.id}
+                    src={image.url}
+                    alt={image.alt_text || ''}
+                    loading="lazy"
+                    className="aspect-4/3 w-full rounded-lg object-cover shadow-md"
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* ---------------------------------------------------------------- */}
         {/* 3. Facilities grid                                               */}
