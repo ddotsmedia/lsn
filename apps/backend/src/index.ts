@@ -11,6 +11,9 @@ import { createBookingsRouter } from './routes/bookings.js';
 import { createChatbotRouter } from './routes/chatbot.js';
 import { createPublicContentRouter } from './routes/content.js';
 import { createVideoUploadRouter } from './routes/videoUpload.js';
+import { createAgeGroupsRouter } from './routes/ageGroups.js';
+import { createMediaRouter } from './routes/media.js';
+import { createPagesRouter } from './routes/pages.js';
 import { createAdminRouter } from './routes/admin/index.js';
 import { createAnalyticsTracker } from './middleware/analytics.js';
 
@@ -56,6 +59,9 @@ app.use('/api/v1/registrations', createRegistrationsRouter(db));
 app.use('/api/v1/tour-bookings', createBookingsRouter(db));
 app.use('/api/v1/chatbot', createChatbotRouter(db));
 app.use('/api/v1/videos', createVideoUploadRouter(db));
+app.use('/api/v1/age-groups', createAgeGroupsRouter(db));
+app.use('/api/v1/media', createMediaRouter(db));
+app.use('/api/v1/pages', createPagesRouter(db));
 app.use('/api/v1', createPublicContentRouter(db));
 app.use('/api/v1/admin', createAdminRouter(db));
 
