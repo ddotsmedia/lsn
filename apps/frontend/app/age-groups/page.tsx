@@ -8,6 +8,8 @@ import { AgeGroupCard, type AgeGroupColor } from '@/components/AgeGroupCard';
 import { QuickFactsCard } from '@/components/QuickFactsCard';
 import { Butterfly, Flower } from '@/components/Decorations';
 import { useAgeGroupMedia, useAgeGroupIcons, slugify } from '@/lib/media';
+import type { SiteImage } from '@/lib/media';
+import { Modal } from '@/components/Modal';
 
 /* -------------------------------------------------------------------------- */
 /* Data                                                                        */
@@ -360,6 +362,10 @@ export default function AgeGroupsPage() {
   // derived from the name the same way the admin panel derives it.
   const ageGroupImages = useAgeGroupMedia(selected ? slugify(selected.name) : null);
   const heroImage = ageGroupImages.hero;
+  const galleryImages = ageGroupImages.gallery;
+
+  /** Enlarged gallery image, so a photo can be seen at a useful size. */
+  const [lightbox, setLightbox] = useState<SiteImage | null>(null);
 
   // Icons for every card, fetched once rather than per card.
   const groupIcons = useAgeGroupIcons(AGE_GROUP_SLUGS);
@@ -550,6 +556,42 @@ export default function AgeGroupsPage() {
                 </div>
               </div>
 
+              {/* Gallery
+                  Images uploaded in admin -> Age Groups -> Programmes. The
+                  whole block is skipped while a group has none, so a group
+                  without photographs reads exactly as it did before. */}
+              {galleryImages.length > 0 && (
+                <>
+                  <h3 className="mt-14 mb-6 text-xl font-semibold text-gray-800 md:text-2xl">
+                    Inside {selected.name}
+                  </h3>
+                  {/* Scroll-snap on small screens, grid from sm up: a carousel
+                      needs no library to feel right on a phone. */}
+                  <ul className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 scrollbar-none sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-3">
+                    {galleryImages.map((image) => (
+                      <li
+                        key={image.id}
+                        className="w-[78%] shrink-0 snap-center sm:w-auto"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setLightbox(image)}
+                          className="block w-full overflow-hidden rounded-lg shadow-md transition-transform duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-800 md:hover:scale-[1.02]"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={image.url}
+                            alt={image.alt_text || `${selected.name} at Little Smarties`}
+                            loading="lazy"
+                            className="aspect-4/3 w-full object-cover"
+                          />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
               {/* Quick facts */}
               <h3 className="mt-14 mb-6 text-xl font-semibold text-gray-800 md:text-2xl">
                 Quick Facts
@@ -587,6 +629,27 @@ export default function AgeGroupsPage() {
       </main>
 
       <Footer />
+
+      <Modal
+        isOpen={lightbox !== null}
+        onClose={() => setLightbox(null)}
+        size="lg"
+        ariaLabel={lightbox?.alt_text || 'Enlarged photograph'}
+      >
+        {lightbox && (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={lightbox.url}
+              alt={lightbox.alt_text || ''}
+              className="max-h-[75vh] w-full rounded-lg object-contain"
+            />
+            {lightbox.alt_text && (
+              <p className="mt-3 text-center text-sm text-gray-600">{lightbox.alt_text}</p>
+            )}
+          </>
+        )}
+      </Modal>
     </>
   );
 }

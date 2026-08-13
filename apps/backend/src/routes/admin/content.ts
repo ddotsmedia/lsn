@@ -53,10 +53,17 @@ const FacilitySchema = z.object({
   sort_order: z.number().int().optional(),
 });
 
+/**
+ * Matches age_groups as it exists: the columns are min_age_months and
+ * max_age_months. The schema and every query here said min_age/max_age, so the
+ * admin list returned 500 with 'column min_age does not exist' and create and
+ * update failed the same way.
+ */
 const AgeGroupSchema = z.object({
-  name: z.string().min(1).max(255),
-  min_age: z.number().int().min(0),
-  max_age: z.number().int().min(1),
+  name: z.string().trim().min(1, 'Name is required').max(255),
+  description: z.preprocess(blankToNull, z.string().trim().nullable().optional()),
+  min_age_months: z.number().int().min(0),
+  max_age_months: z.number().int().min(1),
 });
 
 const ReorderSchema = z.object({
@@ -392,7 +399,7 @@ async function reorderFacilities(db: Pool, req: AuthRequest, res: Response): Pro
 
 async function listAgeGroups(db: Pool, _req: AuthRequest, res: Response): Promise<void> {
   try {
-    const result = await db.query('SELECT * FROM age_groups ORDER BY min_age ASC');
+    const result = await db.query('SELECT * FROM age_groups ORDER BY min_age_months ASC');
     res.json(result.rows);
   } catch (error) {
     console.error('listAgeGroups failed', error);
@@ -404,8 +411,8 @@ async function createAgeGroup(db: Pool, req: AuthRequest, res: Response): Promis
   try {
     const data = AgeGroupSchema.parse(req.body);
     const result = await db.query(
-      'INSERT INTO age_groups (name, min_age, max_age) VALUES ($1, $2, $3) RETURNING *',
-      [data.name, data.min_age, data.max_age]
+      'INSERT INTO age_groups (name, description, min_age_months, max_age_months) VALUES ($1, $2, $3, $4) RETURNING *',
+      [data.name, data.description ?? null, data.min_age_months, data.max_age_months]
     );
     await logActivity(db, req.userId, 'create', 'age_group', String(result.rows[0]?.id), { name: data.name });
     res.status(201).json(result.rows[0]);
@@ -425,8 +432,9 @@ async function updateAgeGroup(db: Pool, req: AuthRequest, res: Response): Promis
     let idx = 1;
 
     if (data.name !== undefined) { sets.push(`name = $${idx++}`); params.push(data.name); }
-    if (data.min_age !== undefined) { sets.push(`min_age = $${idx++}`); params.push(data.min_age); }
-    if (data.max_age !== undefined) { sets.push(`max_age = $${idx++}`); params.push(data.max_age); }
+    if (data.description !== undefined) { sets.push(`description = $${idx++}`); params.push(data.description ?? null); }
+    if (data.min_age_months !== undefined) { sets.push(`min_age_months = $${idx++}`); params.push(data.min_age_months); }
+    if (data.max_age_months !== undefined) { sets.push(`max_age_months = $${idx++}`); params.push(data.max_age_months); }
 
     if (sets.length === 0) { res.status(400).json({ error: 'No fields to update' }); return; }
 

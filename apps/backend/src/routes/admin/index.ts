@@ -8,6 +8,7 @@ import { createAdminNewsRouter } from './news.js';
 import { createAdminDashboardRouter } from './dashboard.js';
 import { createAdminMediaRouter } from './media.js';
 import { createAdminPartnersRouter } from './partners.js';
+import { createAdminAgeGroupImagesRouter } from './ageGroupImages.js';
 import { createAdminPagesRouter } from './pages.js';
 import { createAdminSeoRouter } from './seo.js';
 import { createAdminAnalyticsRouter } from './analytics.js';
@@ -33,6 +34,8 @@ export function createAdminRouter(db: Pool): express.Router {
   router.use('/partners', createAdminPartnersRouter(db));
   // Same handlers as /content/facilities, at the shorter path.
   router.use('/facilities', createAdminFacilitiesRouter(db));
+  // Programme images. The age_groups CRUD stays at /content/age-groups.
+  router.use('/age-groups', createAdminAgeGroupImagesRouter(db));
   // Same handlers as /content/events, at the path the admin Events tab uses.
   router.use('/events', createAdminEventsRouter(db));
   router.use('/pages', createAdminPagesRouter(db));
