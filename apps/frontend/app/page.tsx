@@ -14,6 +14,8 @@ import {
   CloudScallop,
 } from '@/components/Decorations';
 import { PartnerLogo } from '@/components/PartnerLogo';
+import { PageFeatureImages, PageBackground } from '@/components/PageFeatureImages';
+import { usePageMedia } from '@/lib/media';
 
 interface FeaturedVideo {
   id: string;
@@ -169,6 +171,10 @@ const HERO_SLIDES: HeroSlide[] = [
 export default function Home() {
   const [activeTab, setActiveTab] = useState(0);
   const [testimonialStart, setTestimonialStart] = useState(0);
+  // Images uploaded in admin -> Media Library -> Pages -> Home. usePageMedia
+  // fails quiet, so a request problem leaves the page exactly as it was.
+  const pageImages = usePageMedia('home');
+
   const [partners, setPartners] = useState<Partner[]>([]);
   const [partnersLoading, setPartnersLoading] = useState(true);
   const [featuredVideo, setFeaturedVideo] = useState<FeaturedVideo | null>(null);
@@ -206,6 +212,13 @@ export default function Home() {
       cancelled = true;
     };
   }, []);
+  // An uploaded hero leads the rotator rather than replacing it: the four
+  // photographs below are real nursery images, and swapping all of them for one
+  // static picture would be a downgrade.
+  const heroSlides: HeroSlide[] = pageImages.hero
+    ? [{ src: pageImages.hero.url, alt: pageImages.hero.alt_text || 'Little Smarties Nursery' }, ...HERO_SLIDES]
+    : HERO_SLIDES;
+
   const activeGroup = ageGroups[activeTab];
 
   const visibleTestimonials = [0, 1, 2].map(
@@ -221,7 +234,7 @@ export default function Home() {
         {/* Hero                                                              */}
         {/* ---------------------------------------------------------------- */}
         <section className="relative overflow-hidden bg-blue-900">
-          <HeroRotator slides={HERO_SLIDES} intervalMs={6000} />
+          <HeroRotator slides={heroSlides} intervalMs={6000} />
           <div className="pointer-events-none absolute inset-0 bg-black/25" />
           <div className="pointer-events-none absolute inset-0 opacity-70">
             <div className="absolute left-[10%] top-6 h-24 w-24 rounded-full bg-white/10 blur-xl" />
@@ -284,6 +297,10 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        {/* Uploaded photographs. Skipped entirely while the slots are empty,
+            so the page reads as before until images are added. */}
+        <PageFeatureImages images={pageImages} className="bg-white pb-20 sm:pb-28" />
 
         {/* ---------------------------------------------------------------- */}
         {/* Age Groups — tabbed selector                                     */}
@@ -361,7 +378,11 @@ export default function Home() {
         {/* ---------------------------------------------------------------- */}
         {/* Testimonials                                                      */}
         {/* ---------------------------------------------------------------- */}
-        <section className="relative overflow-hidden bg-white py-20 sm:py-28">
+        <PageBackground
+          image={pageImages.background}
+          className="relative overflow-hidden py-20 sm:py-28"
+          fallbackClassName="bg-white"
+        >
           <div className="pointer-events-none absolute left-[6%] top-16 h-4 w-4 rounded-full bg-amber-300" />
           <div className="pointer-events-none absolute right-[10%] top-24 h-3 w-3 rounded-full bg-blue-300" />
           <div className="pointer-events-none absolute bottom-24 left-[14%] h-3 w-3 rounded-full bg-pink-300" />
@@ -416,7 +437,7 @@ export default function Home() {
               Join our community of happy families!
             </p>
           </div>
-        </section>
+        </PageBackground>
 
         {/* ---------------------------------------------------------------- */}
         {/* Partners                                                          */}
