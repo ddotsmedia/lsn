@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { Pool } from 'pg';
 // Configured centrally. Calling cloudinary.config() here as well used to
 // overwrite the credentials the SDK had read from CLOUDINARY_URL.
-import { cloudinary } from '../config/cloudinary.js';
+import { cloudinary, isCloudinaryConfigured } from '../config/cloudinary.js';
 
 // `ip` is optional on Express's Request; redeclaring it as required here made
 // this local type incompatible with the shared AuthRequest the middleware uses.
@@ -23,6 +23,14 @@ export const uploadToCloudinary = async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ success: false, error: 'No file provided' });
   }
 
+  // Answers plainly rather than letting the SDK fail with an auth error.
+  if (!isCloudinaryConfigured()) {
+    return res.status(503).json({
+      success: false,
+      error: 'Video hosting is not configured. Set CLOUDINARY_URL.',
+    });
+  }
+
   try {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
@@ -36,7 +44,13 @@ export const uploadToCloudinary = async (req: AuthRequest, res: Response) => {
       (error: any, result: any) => {
         if (error) {
           console.error('Cloudinary upload error:', error);
-          return res.status(500).json({ success: false, error: 'Upload failed' });
+          // Cloudinary's own message ("Unsupported file type mkv", "File size
+          // too large") tells the user what to change; "Upload failed" does not.
+          const detail = typeof error?.message === 'string' ? error.message : null;
+          return res.status(error?.http_code === 400 ? 400 : 500).json({
+            success: false,
+            error: detail ? `Cloudinary rejected the video: ${detail}` : 'Upload failed',
+          });
         }
 
         res.json({
