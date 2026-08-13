@@ -3,6 +3,13 @@ import { Pool } from 'pg';
 // Configured centrally. Calling cloudinary.config() here as well used to
 // overwrite the credentials the SDK had read from CLOUDINARY_URL.
 import { cloudinary, isCloudinaryConfigured } from '../config/cloudinary.js';
+// The shared audit helper. This file used to insert into admin_activity_log by
+// hand, writing admin_id — a column whose foreign key points at admin_users,
+// which a users-table administrator is not in. That insert threw, and because
+// it ran after the video row was already written the request returned 500 with
+// the video saved anyway. logActivity writes admin_user_id and swallows its own
+// errors, so an audit problem can never fail the operation it is recording.
+import { logActivity } from '../utils/activityLog.js';
 
 // `ip` is optional on Express's Request; redeclaring it as required here made
 // this local type incompatible with the shared AuthRequest the middleware uses.
@@ -93,11 +100,10 @@ export const saveVideoMetadata = async (db: Pool, req: AuthRequest, res: Respons
       [title, description || '', video_url, thumbnail_url || '', cloudinary_public_id, duration_seconds || 0, req.userId]
     );
 
-    await db.query(
-      `INSERT INTO admin_activity_log (admin_id, action, entity_type, entity_id, new_values, ip_address, created_at)
-       VALUES ($1, 'CREATE', 'video_upload', $2, $3, $4, CURRENT_TIMESTAMP)`,
-      [req.userId, result.rows[0].id, JSON.stringify(result.rows[0]), req.ip || 'unknown']
-    );
+    await logActivity(db, req.userId, 'create', 'video_upload', result.rows[0].id, {
+      newValues: result.rows[0],
+      req: req as never,
+    });
 
     return res.status(201).json({
       success: true,
@@ -145,11 +151,10 @@ export const deleteVideo = async (db: Pool, req: AuthRequest, res: Response) => 
       [id]
     );
 
-    await db.query(
-      `INSERT INTO admin_activity_log (admin_id, action, entity_type, entity_id, old_values, ip_address, created_at)
-       VALUES ($1, 'DELETE', 'video_upload', $2, $3, $4, CURRENT_TIMESTAMP)`,
-      [req.userId, id, JSON.stringify(oldResult.rows[0]), req.ip || 'unknown']
-    );
+    await logActivity(db, req.userId, 'delete', 'video_upload', id, {
+      oldValues: oldResult.rows[0],
+      req: req as never,
+    });
 
     return res.json({ success: true, message: 'Video deleted successfully' });
   } catch (error) {
@@ -175,11 +180,10 @@ export const restoreVideo = async (db: Pool, req: AuthRequest, res: Response) =>
       return res.status(404).json({ success: false, error: 'Video not found' });
     }
 
-    await db.query(
-      `INSERT INTO admin_activity_log (admin_id, action, entity_type, entity_id, new_values, ip_address, created_at)
-       VALUES ($1, 'RESTORE', 'video_upload', $2, $3, $4, CURRENT_TIMESTAMP)`,
-      [req.userId, id, JSON.stringify(result.rows[0]), req.ip || 'unknown']
-    );
+    await logActivity(db, req.userId, 'restore', 'video_upload', id, {
+      newValues: result.rows[0],
+      req: req as never,
+    });
 
     return res.json({ success: true, message: 'Video restored', data: result.rows[0] });
   } catch (error) {
