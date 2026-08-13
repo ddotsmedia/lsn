@@ -50,3 +50,6 @@ docker-compose.yml.save
 
 # Playwright MCP session artifacts
 .playwright-mcp/
+
+# Screenshots Playwright writes to the repo root when given a bare filename
+/*.png
