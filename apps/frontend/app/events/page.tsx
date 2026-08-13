@@ -25,6 +25,7 @@ interface ApiNews {
   title: string;
   description: string;
   published_date: string | null;
+  image_url?: string | null;
 }
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -139,15 +140,26 @@ function EventCard({ event, past, onOpen }: { event: ApiEvent; past: boolean; on
 }
 
 /**
- * News has no image, time or venue, so it gets a text-led card rather than the
- * event card with its photo and date badge.
+ * A news item may carry one featured image. Without one the card stays
+ * text-led, which is how every existing item reads.
  */
 function NewsCard({ item, onOpen }: { item: ApiNews; onOpen: () => void }) {
   return (
     <article
       onClick={onOpen}
-      className="flex h-full cursor-pointer flex-col rounded-lg bg-white p-5 shadow-md transition-all duration-200 hover:shadow-lg focus-within:ring-2 focus-within:ring-blue-800 md:p-6 md:hover:scale-[1.02]"
+      className="flex h-full cursor-pointer flex-col overflow-hidden rounded-lg bg-white shadow-md transition-all duration-200 hover:shadow-lg focus-within:ring-2 focus-within:ring-blue-800 md:hover:scale-[1.02]"
     >
+      {item.image_url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={item.image_url}
+          alt={item.title}
+          loading="lazy"
+          className="aspect-3/2 w-full object-cover"
+        />
+      )}
+
+      <div className="flex flex-1 flex-col p-5 md:p-6">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-red-600">
         {formatFull(item.published_date)}
       </p>
@@ -162,6 +174,7 @@ function NewsCard({ item, onOpen }: { item: ApiNews; onOpen: () => void }) {
       >
         Read more
       </button>
+      </div>
     </article>
   );
 }
@@ -370,6 +383,14 @@ export default function EventsPage() {
       >
         {selectedNews && (
           <div>
+            {selectedNews.image_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={selectedNews.image_url}
+                alt={selectedNews.title}
+                className="mb-5 aspect-3/2 w-full rounded-lg object-cover"
+              />
+            )}
             <p className="text-sm font-semibold uppercase tracking-wide text-red-600">
               {formatFull(selectedNews.published_date)}
             </p>

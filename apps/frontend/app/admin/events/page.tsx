@@ -18,6 +18,7 @@ interface NewsItem {
   description: string;
   published_date: string | null;
   is_published: boolean;
+  image_url: string | null;
   created_at: string;
 }
 
@@ -156,6 +157,12 @@ export default function NewsAndEventsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // One featured image per news item. The file is held here until the item has
+  // an id to attach it to, since a new item is created before it has one.
+  const [newsImageFile, setNewsImageFile] = useState<File | null>(null);
+  const [newsImagePreview, setNewsImagePreview] = useState<string | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
+
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [newsForm, setNewsForm] = useState<NewsForm>(EMPTY_NEWS);
@@ -209,6 +216,7 @@ export default function NewsAndEventsPage() {
     setEditId(null);
     setNewsForm(EMPTY_NEWS);
     setEventForm(EMPTY_EVENT);
+    clearNewsImage();
     setErrors({});
     setShowModal(true);
   };
@@ -221,6 +229,9 @@ export default function NewsAndEventsPage() {
       published_date: toDateInput(item.published_date),
       is_published: item.is_published !== false,
     });
+    // The saved image, if any, so the picker shows what is currently set.
+    setNewsImageFile(null);
+    setNewsImagePreview(item.image_url ?? null);
     setErrors({});
     setShowModal(true);
   };
@@ -248,6 +259,65 @@ export default function NewsAndEventsPage() {
     setShowModal(false);
     setEditId(null);
     setErrors({});
+  };
+
+  /* ---------------------------------------------------------- news image */
+
+  const clearNewsImage = () => {
+    setNewsImagePreview((old) => { if (old?.startsWith('blob:')) URL.revokeObjectURL(old); return null; });
+    setNewsImageFile(null);
+  };
+
+  /** Validates and previews. The upload itself waits until the item is saved. */
+  const pickNewsImage = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setToast({ message: 'Please choose an image file', type: 'error' });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setToast({ message: 'Image must be 10 MB or smaller', type: 'error' });
+      return;
+    }
+    setNewsImageFile(file);
+    setNewsImagePreview((old) => {
+      if (old?.startsWith('blob:')) URL.revokeObjectURL(old);
+      return URL.createObjectURL(file);
+    });
+  };
+
+  const uploadNewsImage = async (id: string, file: File): Promise<void> => {
+    const form = new FormData();
+    form.append('image', file);
+    const token = localStorage.getItem('lsn_token');
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/news/${id}/image`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: form,
+    });
+    if (!res.ok) {
+      const payload = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(payload.error || `Upload failed (${res.status})`);
+    }
+  };
+
+  /** Removes the image from an already-saved item. */
+  const removeSavedNewsImage = async () => {
+    if (!editId) { clearNewsImage(); return; }
+    setImageBusy(true);
+    try {
+      const token = localStorage.getItem('lsn_token');
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/news/${editId}/image`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!res.ok) throw new Error(`Failed (${res.status})`);
+      clearNewsImage();
+      setToast({ message: 'Image removed', type: 'success' });
+      fetchData('news', newsPage.page);
+    } catch (err) {
+      setToast({ message: err instanceof Error ? err.message : 'Failed to remove image', type: 'error' });
+    } finally { setImageBusy(false); }
   };
 
   /* ----------------------------------------------------------------- save */
@@ -283,11 +353,35 @@ export default function NewsAndEventsPage() {
 
     setSaving(true);
     try {
+      let savedId = editId;
       if (editId) {
         await api(`${path}/${editId}`, { method: 'PUT', body: JSON.stringify(body) });
       } else {
-        await api(path, { method: 'POST', body: JSON.stringify(body) });
+        const created = await api<{ id: string }>(path, { method: 'POST', body: JSON.stringify(body) });
+        savedId = created?.id ?? null;
       }
+
+      // The image is attached after the item exists, since the endpoint keys it
+      // to the item's id. A failure here is reported but does not discard the
+      // item that was just saved.
+      if (isNews && newsImageFile && savedId) {
+        try {
+          await uploadNewsImage(savedId, newsImageFile);
+        } catch (err) {
+          setToast({
+            message: `Saved, but the image failed: ${err instanceof Error ? err.message : 'upload error'}`,
+            type: 'error',
+          });
+          setShowModal(false);
+          setEditId(null);
+          setNewsForm(EMPTY_NEWS);
+          clearNewsImage();
+          fetchData(tab, editId ? (isNews ? newsPage.page : eventsPage.page) : 1);
+          setSaving(false);
+          return;
+        }
+      }
+
       setToast({
         message: `${isNews ? 'News item' : 'Event'} ${editId ? 'updated' : 'created'}`,
         type: 'success',
@@ -489,6 +583,40 @@ export default function NewsAndEventsPage() {
                   />
                 </FormField>
               </div>
+
+              <FormField label="Featured image">
+                <div className="space-y-2">
+                  {newsImagePreview && (
+                    <div className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={newsImagePreview}
+                        alt="Featured image preview"
+                        className="h-40 w-full rounded-lg border border-zinc-800 object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void removeSavedNewsImage()}
+                        disabled={imageBusy}
+                        aria-label="Remove image"
+                        className="absolute right-2 top-2 rounded bg-red-500/80 px-2 py-0.5 text-xs text-white hover:bg-red-500 disabled:opacity-50"
+                      >
+                        {imageBusy ? '…' : '✕'}
+                      </button>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => pickNewsImage(e.target.files?.[0])}
+                    className="block w-full cursor-pointer rounded-lg border border-zinc-800 bg-[#0c0c14] p-2 text-sm text-zinc-300 file:mr-3 file:rounded file:border-0 file:bg-zinc-800 file:px-3 file:py-1 file:text-xs file:text-zinc-200"
+                  />
+                  <p className="text-xs text-zinc-600">
+                    Shown on the public News section. Landscape works best — around 1200×600. Max 10 MB.
+                    {newsImageFile && !editId && ' Uploaded once the item is created.'}
+                  </p>
+                </div>
+              </FormField>
             </>
           ) : (
             <>

@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 import { z } from 'zod';
 import type { AuthRequest } from '../middleware/auth.js';
 import { logActivity } from '../utils/activityLog.js';
+import { cloudinary, isCloudinaryConfigured } from '../config/cloudinary.js';
 
 export interface NewsItem {
   id: string;
@@ -30,13 +31,127 @@ const NewsSchema = z.object({
   is_published: z.preprocess(blankToNull, z.boolean().nullable().optional()),
 });
 
+// ----------------------------------------------------------------- images
+
+interface CloudinaryImage {
+  secure_url: string;
+  public_id: string;
+}
+
+/**
+ * Uploads under a public_id fixed to the news item, with overwrite. Replacing
+ * an image therefore replaces the file rather than leaving the old one behind
+ * as an orphan, which a timestamped id would.
+ */
+export async function uploadNewsImage(db: Pool, req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+
+    const existing = await db.query(
+      'SELECT id, title, cloudinary_id FROM news WHERE id = $1 AND deleted_at IS NULL',
+      [id]
+    );
+    if (existing.rows.length === 0) { res.status(404).json({ error: 'News item not found' }); return; }
+
+    if (!req.file) { res.status(400).json({ error: 'No image file provided' }); return; }
+    if (!isCloudinaryConfigured()) {
+      res.status(503).json({ error: 'Image hosting is not configured. Set CLOUDINARY_URL.' });
+      return;
+    }
+
+    const uploaded = await new Promise<CloudinaryImage>((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'bayrotna/news',
+          public_id: `news_${id}`,
+          overwrite: true,
+          // Purges the cached copy of the previous image, which would otherwise
+          // keep being served from the same URL for hours.
+          invalidate: true,
+          resource_type: 'image',
+          tags: ['news'],
+          transformation: [{ width: 2000, height: 2000, crop: 'limit' }],
+        },
+        (error, result) => {
+          if (error || !result) { reject(error ?? new Error('Upload failed')); return; }
+          resolve(result as CloudinaryImage);
+        }
+      );
+      stream.end(req.file!.buffer);
+    });
+
+    const url = cloudinary.url(uploaded.public_id, {
+      secure: true, fetch_format: 'auto', quality: 'auto', version: Date.now(),
+    });
+
+    const updated = await db.query(
+      `UPDATE news SET image_url = $1, cloudinary_id = $2, uploaded_by = $3
+        WHERE id = $4 AND deleted_at IS NULL RETURNING *`,
+      [url, uploaded.public_id, req.userId ?? null, id]
+    );
+
+    await logActivity(db, req.userId, 'upload', 'news', id as string, {
+      details: { image_url: url, cloudinary_id: uploaded.public_id },
+      req,
+    });
+
+    res.json({ success: true, news: updated.rows[0], imageUrl: url });
+  } catch (error) {
+    console.error('News image upload error:', error);
+    const detail = (error as { message?: string })?.message;
+    res.status(500).json({
+      error: 'Failed to upload image',
+      details: typeof detail === 'string' ? detail : undefined,
+    });
+  }
+}
+
+export async function deleteNewsImage(db: Pool, req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const existing = await db.query(
+      'SELECT cloudinary_id FROM news WHERE id = $1 AND deleted_at IS NULL',
+      [id]
+    );
+    if (existing.rows.length === 0) { res.status(404).json({ error: 'News item not found' }); return; }
+
+    const { cloudinary_id: publicId } = existing.rows[0] as { cloudinary_id: string | null };
+
+    // The row is cleared first: an orphaned remote file is a smaller problem
+    // than a row pointing at an image that no longer exists.
+    const updated = await db.query(
+      `UPDATE news SET image_url = NULL, cloudinary_id = NULL, uploaded_by = NULL
+        WHERE id = $1 RETURNING *`,
+      [id]
+    );
+
+    if (publicId) {
+      try {
+        await cloudinary.uploader.destroy(publicId, { invalidate: true });
+      } catch (error) {
+        console.error(`cloudinary destroy failed for ${publicId}`, error);
+      }
+    }
+
+    await logActivity(db, req.userId, 'delete', 'news', id as string, {
+      details: { action: 'image_removed', cloudinary_id: publicId },
+      req,
+    });
+
+    res.json({ success: true, news: updated.rows[0] });
+  } catch (error) {
+    console.error('News image delete error:', error);
+    res.status(500).json({ error: 'Failed to delete image' });
+  }
+}
+
 // ---------------------------------------------------------------- public
 
 /** Published, undeleted news, newest first. Feeds the site's News section. */
 export async function listPublicNews(db: Pool, _req: AuthRequest, res: Response): Promise<void> {
   try {
     const result = await db.query(
-      `SELECT id, title, description, published_date, created_at
+      `SELECT id, title, description, published_date, image_url, created_at
          FROM news
         WHERE deleted_at IS NULL AND is_published = TRUE
         ORDER BY published_date DESC, created_at DESC`
