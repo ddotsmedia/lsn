@@ -400,7 +400,10 @@ async function reorderFacilities(db: Pool, req: AuthRequest, res: Response): Pro
 
 async function listAgeGroups(db: Pool, _req: AuthRequest, res: Response): Promise<void> {
   try {
-    const result = await db.query('SELECT * FROM age_groups ORDER BY min_age_months ASC');
+    // Retired programmes stay in the table for their foreign key but must not
+    // appear in the admin list. ?deleted=true shows them for restoring.
+    const where = _req.query.deleted === 'true' ? 'WHERE deleted_at IS NOT NULL' : 'WHERE deleted_at IS NULL';
+    const result = await db.query(`SELECT * FROM age_groups ${where} ORDER BY sort_order ASC, min_age_months ASC`);
     res.json(result.rows);
   } catch (error) {
     console.error('listAgeGroups failed', error);
@@ -441,7 +444,7 @@ async function updateAgeGroup(db: Pool, req: AuthRequest, res: Response): Promis
 
     params.push(id);
     const result = await db.query(
-      `UPDATE age_groups SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`,
+      `UPDATE age_groups SET ${sets.join(', ')} WHERE id = ${idx} AND deleted_at IS NULL RETURNING *`,
       params
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Age group not found' }); return; }
@@ -457,7 +460,12 @@ async function updateAgeGroup(db: Pool, req: AuthRequest, res: Response): Promis
 async function deleteAgeGroup(db: Pool, req: AuthRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const result = await db.query('DELETE FROM age_groups WHERE id = $1 RETURNING id', [id]);
+    // Soft delete: registrations.age_group_id references these rows, so a hard
+    // DELETE would either fail or orphan a registration.
+    const result = await db.query(
+      'UPDATE age_groups SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND deleted_at IS NULL RETURNING id',
+      [id]
+    );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Age group not found' }); return; }
     await logActivity(db, req.userId, 'delete', 'age_group', id);
     res.status(204).send();
