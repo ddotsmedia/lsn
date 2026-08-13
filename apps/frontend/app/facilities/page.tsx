@@ -10,6 +10,7 @@ import { FacilityModal, type Facility } from '@/components/FacilityModal';
 import { SafetyCard, type SafetyCardColor } from '@/components/SafetyCard';
 import { Cloud, Flower } from '@/components/Decorations';
 import { HeroBackground } from '@/components/HeroBackground';
+import { PageFeatureImages } from '@/components/PageFeatureImages';
 import { usePageMedia } from '@/lib/media';
 
 /* -------------------------------------------------------------------------- */
@@ -524,11 +525,21 @@ export default function FacilitiesPage() {
         {/* ---------------------------------------------------------------- */}
         <section aria-labelledby="outdoor-heading" className="bg-white py-16 md:py-24">
           <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-8 px-4 md:px-6 lg:grid-cols-2 lg:gap-12 lg:px-8">
-            <div
-              className="aspect-3/2 w-full rounded-lg bg-gradient-to-br from-green-100 to-emerald-200"
-              role="img"
-              aria-label="Outdoor play areas"
-            />
+            {pageImages.feature_1 ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={pageImages.feature_1.url}
+                alt={pageImages.feature_1.alt_text || 'Outdoor play areas'}
+                loading="lazy"
+                className="aspect-3/2 w-full rounded-lg object-cover shadow-md"
+              />
+            ) : (
+              <div
+                className="aspect-3/2 w-full rounded-lg bg-gradient-to-br from-green-100 to-emerald-200"
+                role="img"
+                aria-label="Outdoor play areas"
+              />
+            )}
 
             <div>
               <h2
@@ -570,11 +581,21 @@ export default function FacilitiesPage() {
         <section aria-labelledby="technology-heading" className="bg-gray-50 py-16 md:py-24">
           <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-8 px-4 md:px-6 lg:grid-cols-2 lg:gap-12 lg:px-8">
             <div className="lg:order-2">
-              <div
-                className="aspect-3/2 w-full rounded-lg bg-gradient-to-br from-blue-100 to-purple-100"
-                role="img"
-                aria-label="Technology-enhanced learning"
-              />
+              {pageImages.feature_2 ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={pageImages.feature_2.url}
+                  alt={pageImages.feature_2.alt_text || 'Technology-enhanced learning'}
+                  loading="lazy"
+                  className="aspect-3/2 w-full rounded-lg object-cover shadow-md"
+                />
+              ) : (
+                <div
+                  className="aspect-3/2 w-full rounded-lg bg-gradient-to-br from-blue-100 to-purple-100"
+                  role="img"
+                  aria-label="Technology-enhanced learning"
+                />
+              )}
             </div>
 
             <div className="lg:order-1">
@@ -635,6 +656,14 @@ export default function FacilitiesPage() {
             </div>
           </div>
         </section>
+        {/* feature_1 and feature_2 sit in the sections above; this catches the
+            third so no uploaded image is left with nowhere to appear. */}
+        <PageFeatureImages
+          images={pageImages}
+          slots={['feature_3']}
+          className="bg-white py-16 md:py-24"
+        />
+
         {/* Text written in admin -> Pages -> Text. Renders nothing until a
             section has content, so the copy above is untouched by default. */}
         <PageSections pageSlug="facilities" />

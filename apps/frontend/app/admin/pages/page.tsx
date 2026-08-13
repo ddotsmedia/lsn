@@ -144,6 +144,7 @@ export default function PagesPage() {
           {editId && modalTab === 'images' ? (
             <PageImagesTab
               pageId={editId}
+              pageSlug={form.slug}
               onToast={(message, type) => setToast({ message, type })}
             />
           ) : (

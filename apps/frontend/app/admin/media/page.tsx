@@ -10,6 +10,7 @@ import {
   ImageUploader, ImageGallery, MediaLibrary, formatBytes,
 } from '../../../components/admin/MediaKit';
 import type { MediaItem, MediaCategory } from '../../../components/admin/MediaKit';
+import { slotsForPage } from '../../../components/admin/PageImagesTab';
 
 /* ------------------------------------------------------------------ config */
 
@@ -56,13 +57,10 @@ const PAGES = [
  * wrote feature_1/feature_2/feature_3, so an image uploaded here landed in a
  * slot nothing rendered.
  */
-const PAGE_SECTIONS = [
-  { key: 'hero', label: 'Hero' },
-  { key: 'feature_1', label: 'Feature 1' },
-  { key: 'feature_2', label: 'Feature 2' },
-  { key: 'feature_3', label: 'Feature 3' },
-  { key: 'background', label: 'Background' },
-] as const;
+/**
+ * The list itself lives in PageImagesTab, so this tab and the page editor
+ * cannot drift apart the way feature1/feature_1 once did.
+ */
 
 interface AgeGroupMedia {
   ageGroup: string;
@@ -380,7 +378,7 @@ export default function MediaPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {PAGE_SECTIONS.map((section) => (
+            {slotsForPage(pageSlug).map((section) => (
               <Section key={section.key} title={section.label}>
                 <ImageUploader
                   category="pages"

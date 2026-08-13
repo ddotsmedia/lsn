@@ -20,7 +20,11 @@ import { logActivity } from '../../utils/activityLog.js';
  * "about", so keying on slug would split one page's images in two.
  */
 
-const SLOTS = ['hero', 'feature_1', 'feature_2', 'feature_3', 'background', 'gallery'] as const;
+// 'about' is the home page's intro tile. It is accepted for every page rather
+// than only home; the admin only offers it where something renders it.
+const SLOTS = [
+  'hero', 'feature_1', 'feature_2', 'feature_3', 'background', 'gallery', 'about',
+] as const;
 
 /** Accepts feature1 as well as feature_1, and stores the underscored form. */
 function normaliseSlot(raw: string): string | null {

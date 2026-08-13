@@ -184,14 +184,17 @@ export default function GalleryPage() {
       <main className="bg-white">
         <section
           aria-labelledby="gallery-hero"
-          className="bg-gradient-to-br from-blue-800 to-blue-500 px-4 py-12 text-center md:py-16"
+          className="relative overflow-hidden bg-gradient-to-br from-blue-800 to-blue-500 px-4 py-12 text-center md:py-16"
         >
-          <h1 id="gallery-hero" className="text-3xl font-bold text-white md:text-4xl lg:text-5xl">
-            Gallery
-          </h1>
-          <p className="mx-auto mt-3 max-w-xl text-base text-blue-50 md:text-lg">
-            A look inside our rooms, our garden and our busiest days.
-          </p>
+          <HeroBackground image={pageImages.hero} />
+          <div className="relative z-10">
+            <h1 id="gallery-hero" className="text-3xl font-bold text-white md:text-4xl lg:text-5xl">
+              Gallery
+            </h1>
+            <p className="mx-auto mt-3 max-w-xl text-base text-blue-50 md:text-lg">
+              A look inside our rooms, our garden and our busiest days.
+            </p>
+          </div>
         </section>
         <section aria-labelledby="gallery-heading" className="py-10 md:py-16">
           <div className="mx-auto max-w-6xl px-4 md:px-6">

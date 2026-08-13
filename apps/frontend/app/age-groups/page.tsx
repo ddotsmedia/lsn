@@ -4,11 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { PageSections } from '@/components/PageSections';
+import { PageFeatureImages } from '@/components/PageFeatureImages';
+import { HeroBackground } from '@/components/HeroBackground';
 import { Button } from '@/components/Button';
 import { AgeGroupCard, type AgeGroupColor } from '@/components/AgeGroupCard';
 import { QuickFactsCard } from '@/components/QuickFactsCard';
 import { Butterfly, Flower } from '@/components/Decorations';
-import { useAgeGroupMedia, useAgeGroupIcons, slugify } from '@/lib/media';
+import { useAgeGroupMedia, useAgeGroupIcons, usePageMedia, slugify } from '@/lib/media';
 import type { SiteImage } from '@/lib/media';
 import { Modal } from '@/components/Modal';
 
@@ -318,6 +320,8 @@ const DETAIL_SECTION_ID = 'age-group-detail';
 /* -------------------------------------------------------------------------- */
 
 export default function AgeGroupsPage() {
+  // Page-level images, separate from the per-age-group ones below.
+  const pageImages = usePageMedia('age-groups');
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const detailRef = useRef<HTMLElement>(null);
@@ -389,6 +393,7 @@ export default function AgeGroupsPage() {
           aria-labelledby="hero-heading"
           className="relative flex min-h-75 items-center justify-center overflow-hidden bg-gradient-to-br from-blue-500 to-red-600 px-4 lg:min-h-125"
         >
+          <HeroBackground image={pageImages.hero} />
           <Butterfly className="absolute left-[7%] top-[18%] w-16 text-white opacity-20 lg:w-24" />
           <Flower className="absolute right-[9%] top-[24%] w-12 text-white opacity-20 lg:w-20" />
           <Flower className="absolute bottom-[16%] left-[14%] w-14 text-white opacity-20 lg:w-24" />
@@ -629,6 +634,8 @@ export default function AgeGroupsPage() {
 
         {/* Text written in admin -> Pages -> Text. Renders nothing until a
             section has content, so the copy above is untouched by default. */}
+        <PageFeatureImages images={pageImages} className="bg-white py-16 md:py-24" />
+
         <PageSections pageSlug="age-groups" />
 
       </main>

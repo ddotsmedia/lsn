@@ -293,11 +293,23 @@ export default function Home() {
             <div className="relative mx-auto aspect-[4/3] w-full max-w-md">
               <div className="absolute -left-6 -top-6 h-16 w-16 rounded-full bg-red-500/30" />
               <div className="absolute -bottom-6 -right-4 h-20 w-20 rounded-full bg-blue-500/30" />
+              {/* Media Library -> Pages -> Home -> About photo. Until one is
+                  uploaded this keeps the tinted tile the section has always
+                  shown, so the layout never collapses. */}
               <div className="relative flex h-full items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-blue-100 via-white to-amber-50 shadow-xl">
-                <div className="text-center">
-                  <div className="text-6xl">🧩</div>
-                  <p className="mt-2 text-sm font-semibold text-blue-800">Photo placeholder</p>
-                </div>
+                {pageImages.about ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={pageImages.about.url}
+                    alt={pageImages.about.alt_text || 'Little Smarties Nursery'}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="text-center">
+                    <div className="text-6xl" aria-hidden="true">🧩</div>
+                    <p className="mt-2 text-sm font-semibold text-blue-800">Photo coming soon</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

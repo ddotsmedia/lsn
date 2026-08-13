@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { PageSections } from '@/components/PageSections';
+import { PageFeatureImages } from '@/components/PageFeatureImages';
+import { HeroBackground } from '@/components/HeroBackground';
+import { usePageMedia } from '@/lib/media';
 import { Modal } from '@/components/Modal';
 import { Button } from '@/components/Button';
 import Link from 'next/link';
@@ -224,6 +227,9 @@ function EventGrid({
 }
 
 export default function EventsPage() {
+  // Images uploaded in admin -> Media Library -> Pages -> News & Events. The
+  // pages row is 'news-events', which is the slug page_media stores under.
+  const pageImages = usePageMedia('news-events');
   const [upcoming, setUpcoming] = useState<ApiEvent[]>([]);
   const [news, setNews] = useState<ApiNews[]>([]);
   const [loading, setLoading] = useState(true);
@@ -265,14 +271,17 @@ export default function EventsPage() {
       <main className="bg-white">
         <section
           aria-labelledby="events-hero"
-          className="bg-gradient-to-br from-blue-500 to-red-600 px-4 py-12 text-center md:py-16"
+          className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-red-600 px-4 py-12 text-center md:py-16"
         >
-          <h1 id="events-hero" className="text-3xl font-bold text-white md:text-4xl lg:text-5xl">
-            Events &amp; Programs
-          </h1>
-          <p className="mx-auto mt-3 max-w-xl text-base text-blue-50 md:text-lg">
-            Join us for exciting learning experiences
-          </p>
+          <HeroBackground image={pageImages.hero} />
+          <div className="relative z-10">
+            <h1 id="events-hero" className="text-3xl font-bold text-white md:text-4xl lg:text-5xl">
+              Events &amp; Programs
+            </h1>
+            <p className="mx-auto mt-3 max-w-xl text-base text-blue-50 md:text-lg">
+              Join us for exciting learning experiences
+            </p>
+          </div>
         </section>
 
         {loading ? (
@@ -369,6 +378,8 @@ export default function EventsPage() {
         )}
         {/* Text written in admin -> Pages -> Text. Renders nothing until a
             section has content, so the copy above is untouched by default. */}
+        <PageFeatureImages images={pageImages} className="bg-white py-16 md:py-24" />
+
         <PageSections pageSlug="news-events" />
 
       </main>

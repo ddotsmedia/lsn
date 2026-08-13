@@ -13,13 +13,31 @@ import { Button } from './shared';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
-const SLOTS = [
+interface Slot { key: string; label: string; hint: string }
+
+const SLOTS: Slot[] = [
   { key: 'hero', label: 'Hero', hint: 'Sits behind the page heading.' },
   { key: 'feature_1', label: 'Feature 1', hint: 'First feature block.' },
   { key: 'feature_2', label: 'Feature 2', hint: 'Second feature block.' },
   { key: 'feature_3', label: 'Feature 3', hint: 'Third feature block.' },
   { key: 'background', label: 'Background', hint: 'Optional section background.' },
-] as const;
+];
+
+/**
+ * Slots that only one page has a place for. Offering these everywhere would
+ * mean seven pages with an upload box that renders nothing.
+ */
+const EXTRA_SLOTS: Record<string, Slot[]> = {
+  home: [{
+    key: 'about',
+    label: 'About photo',
+    hint: 'The picture beside “Little Smarties Nursery” on the home page.',
+  }],
+};
+
+export function slotsForPage(slug?: string): Slot[] {
+  return [...SLOTS, ...(slug ? EXTRA_SLOTS[slug] ?? [] : [])];
+}
 
 interface SlotImage {
   assignment_id: string;
@@ -202,11 +220,15 @@ function SlotCard({
 
 export function PageImagesTab({
   pageId,
+  pageSlug,
   onToast,
 }: {
   pageId: string;
+  /** Decides whether this page gets any slots beyond the shared five. */
+  pageSlug?: string;
   onToast: (message: string, type: 'success' | 'error') => void;
 }) {
+  const visibleSlots = slotsForPage(pageSlug);
   const [slots, setSlots] = useState<Slots>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -235,7 +257,7 @@ export function PageImagesTab({
   if (loading) {
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {SLOTS.map((s) => <div key={s.key} className="h-52 animate-pulse rounded-xl bg-zinc-800/40" />)}
+        {visibleSlots.map((s) => <div key={s.key} className="h-52 animate-pulse rounded-xl bg-zinc-800/40" />)}
       </div>
     );
   }
@@ -257,7 +279,7 @@ export function PageImagesTab({
         gradient. Images stay in the Media Library after removal.
       </p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {SLOTS.map((s) => (
+        {visibleSlots.map((s) => (
           <SlotCard
             key={s.key}
             pageId={pageId}
