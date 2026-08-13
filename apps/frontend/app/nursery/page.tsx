@@ -10,6 +10,7 @@ import { TeamMemberCard } from '@/components/TeamMemberCard';
 import { Butterfly, Circle, Cloud, Flower } from '@/components/Decorations';
 import { HeroBackground } from '@/components/HeroBackground';
 import { usePageMedia } from '@/lib/media';
+import { PageFeatureImages } from '@/components/PageFeatureImages';
 
 /* -------------------------------------------------------------------------- */
 /* Data                                                                        */
@@ -262,11 +263,22 @@ export default function NurseryPage() {
         {/* ---------------------------------------------------------------- */}
         <section aria-labelledby="intro-heading" className="bg-white py-16 md:py-24">
           <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-8 px-4 md:px-6 lg:grid-cols-2 lg:gap-12 lg:px-8">
-            <div
-              className="order-1 aspect-4/3 w-full rounded-lg bg-gradient-to-br from-blue-100 to-blue-200"
-              role="img"
-              aria-label="Little Smarties Early Learning Centre"
-            />
+            {/* The first uploaded feature image, or the tinted placeholder
+                this section has always shown when none is set. */}
+            {pageImages.feature_1 ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={pageImages.feature_1.url}
+                alt={pageImages.feature_1.alt_text || 'Little Smarties Early Learning Centre'}
+                className="order-1 aspect-4/3 w-full rounded-lg object-cover shadow-md"
+              />
+            ) : (
+              <div
+                className="order-1 aspect-4/3 w-full rounded-lg bg-gradient-to-br from-blue-100 to-blue-200"
+                role="img"
+                aria-label="Little Smarties Early Learning Centre"
+              />
+            )}
 
             <div className="order-2 p-0 md:p-2 lg:p-4">
               <h2
@@ -301,6 +313,14 @@ export default function NurseryPage() {
             </div>
           </div>
         </section>
+
+        {/* Remaining uploaded photographs. Skipped entirely when the slots are
+            empty, so the page reads as before until images are added. */}
+        <PageFeatureImages
+          images={pageImages}
+          slots={['feature_2', 'feature_3']}
+          className="bg-white pb-16 md:pb-24"
+        />
 
         {/* ---------------------------------------------------------------- */}
         {/* 3. Mission, vision, values                                       */}

@@ -50,11 +50,17 @@ const PAGES = [
   { slug: 'age-groups', label: 'Age Groups' },
 ] as const;
 
+/**
+ * Underscored, matching the page editor and what the public pages read. This
+ * tab used to write feature1/feature2/feature3 while /admin/pages/:id/images
+ * wrote feature_1/feature_2/feature_3, so an image uploaded here landed in a
+ * slot nothing rendered.
+ */
 const PAGE_SECTIONS = [
   { key: 'hero', label: 'Hero' },
-  { key: 'feature1', label: 'Feature 1' },
-  { key: 'feature2', label: 'Feature 2' },
-  { key: 'feature3', label: 'Feature 3' },
+  { key: 'feature_1', label: 'Feature 1' },
+  { key: 'feature_2', label: 'Feature 2' },
+  { key: 'feature_3', label: 'Feature 3' },
   { key: 'background', label: 'Background' },
 ] as const;
 
