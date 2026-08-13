@@ -28,11 +28,17 @@ const SLOTS: Slot[] = [
  * mean seven pages with an upload box that renders nothing.
  */
 const EXTRA_SLOTS: Record<string, Slot[]> = {
-  home: [{
-    key: 'about',
-    label: 'About photo',
-    hint: 'The picture beside “Little Smarties Nursery” on the home page.',
-  }],
+  home: [
+    { key: 'hero_2', label: 'Hero slide 2', hint: 'Second slide of the home carousel.' },
+    { key: 'hero_3', label: 'Hero slide 3', hint: 'Third slide of the home carousel.' },
+    { key: 'hero_4', label: 'Hero slide 4', hint: 'Fourth slide of the home carousel.' },
+    { key: 'hero_5', label: 'Hero slide 5', hint: 'Fifth slide of the home carousel.' },
+    {
+      key: 'about',
+      label: 'About photo',
+      hint: 'The picture beside “Little Smarties Nursery” on the home page.',
+    },
+  ],
 };
 
 export function slotsForPage(slug?: string): Slot[] {

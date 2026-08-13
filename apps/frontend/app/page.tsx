@@ -17,6 +17,7 @@ import {
 import { PartnerLogo } from '@/components/PartnerLogo';
 import { PageFeatureImages, PageBackground } from '@/components/PageFeatureImages';
 import { usePageMedia } from '@/lib/media';
+import type { SiteImage } from '@/lib/media';
 import { useTestimonials, type ApiTestimonial } from '@/lib/testimonials';
 
 interface FeaturedVideo {
@@ -158,9 +159,18 @@ interface Partner {
 }
 
 /**
- * Real photos pulled from littlesmartiesnursery.com's own hero rotator,
- * shown with the same technique the live site uses: setInterval + Tailwind
- * opacity crossfade (see HeroRotator.tsx), no carousel library.
+ * The carousel slots, in the order they play. Each is an image uploaded in
+ * admin -> Media Library -> Pages -> Home, delivered from Cloudinary.
+ */
+const HERO_SLOTS = ['hero', 'hero_2', 'hero_3', 'hero_4', 'hero_5'] as const;
+
+/**
+ * The slides as they were before the images were moved into the database:
+ * files in public/images, shown with setInterval + a Tailwind opacity
+ * crossfade (see HeroRotator.tsx), no carousel library.
+ *
+ * Kept as the fallback for when no hero slot is filled — a first deploy, or an
+ * admin who clears every slot. The home page must never render an empty hero.
  */
 const HERO_SLIDES: HeroSlide[] = [
   { src: '/images/hero-1.png', alt: 'Little Smarties Nursery event' },
@@ -217,12 +227,16 @@ export default function Home() {
       cancelled = true;
     };
   }, []);
-  // An uploaded hero leads the rotator rather than replacing it: the four
-  // photographs below are real nursery images, and swapping all of them for one
-  // static picture would be a downgrade.
-  const heroSlides: HeroSlide[] = pageImages.hero
-    ? [{ src: pageImages.hero.url, alt: pageImages.hero.alt_text || 'Little Smarties Nursery' }, ...HERO_SLIDES]
-    : HERO_SLIDES;
+  // The rotator plays whichever hero slots are filled, in slot order. The four
+  // original photographs now live in hero_2..hero_5, so this reads the same
+  // rotation it always did — only every slide is now replaceable from the admin
+  // panel. Falls back to the bundled files when no slot is filled.
+  const uploadedSlides: HeroSlide[] = HERO_SLOTS
+    .map((slot) => pageImages[slot])
+    .filter((image): image is SiteImage => Boolean(image))
+    .map((image) => ({ src: image.url, alt: image.alt_text || 'Little Smarties Nursery' }));
+
+  const heroSlides: HeroSlide[] = uploadedSlides.length > 0 ? uploadedSlides : HERO_SLIDES;
 
   const activeGroup = ageGroups[activeTab];
 

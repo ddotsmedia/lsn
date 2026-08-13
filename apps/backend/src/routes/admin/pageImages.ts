@@ -23,7 +23,8 @@ import { logActivity } from '../../utils/activityLog.js';
 // 'about' is the home page's intro tile. It is accepted for every page rather
 // than only home; the admin only offers it where something renders it.
 const SLOTS = [
-  'hero', 'feature_1', 'feature_2', 'feature_3', 'background', 'gallery', 'about',
+  'hero', 'hero_2', 'hero_3', 'hero_4', 'hero_5',
+  'feature_1', 'feature_2', 'feature_3', 'background', 'gallery', 'about',
 ] as const;
 
 /** Accepts feature1 as well as feature_1, and stores the underscored form. */
