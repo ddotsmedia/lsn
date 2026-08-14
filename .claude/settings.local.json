@@ -29,7 +29,16 @@
       "Bash(break)",
       "mcp__playwright__browser_fill_form",
       "mcp__playwright__browser_network_requests",
-      "mcp__playwright__browser_run_code_unsafe"
+      "mcp__playwright__browser_run_code_unsafe",
+      "Bash(chmod +x deploy-phase2.sh)",
+      "Bash(ssh -v root@187.127.185.239 'cd /opt/littlesmarties && docker-compose ps')",
+      "Bash(ssh root@187.127.185.239 'cd /opt/littlesmarties && git pull origin main 2>&1')",
+      "Bash(ssh *)",
+      "Bash(rsync -avz --delete C:/web/lsn/apps/backend/ root@187.127.185.239:/opt/lsn/apps/backend/)",
+      "Bash(tar czf *)",
+      "Bash(node *)",
+      "Bash(grep -E \"^\\\\$2\")",
+      "Bash(npm init *)"
     ]
   }
 }

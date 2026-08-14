@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../lib/auth-context';
+import { AdminLayout } from '../../../components/AdminLayout';
+import { Button } from '../../../components/ui/Button';
+import { AlertCircle, CheckCircle, Image as ImageIcon, Loader2 } from 'lucide-react';
 
 interface Page {
   id: string;
@@ -23,7 +26,7 @@ interface Section {
 
 export default function TextEditorPage() {
   const router = useRouter();
-  const { isAuthenticated, loading: authLoading, logout } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
   const [pages, setPages] = useState<Page[]>([]);
   const [selectedPage, setSelectedPage] = useState<Page | null>(null);
@@ -33,6 +36,7 @@ export default function TextEditorPage() {
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -65,6 +69,7 @@ export default function TextEditorPage() {
   const selectPage = async (page: Page) => {
     setSelectedPage(page);
     setEditingSection(null);
+    setError(null);
     try {
       const response = await fetch(`${apiUrl}/api/v1/pages/${page.slug}`);
       const data = await response.json();
@@ -126,6 +131,8 @@ export default function TextEditorPage() {
         setSections(sections.map(s => s.id === editingSection.id ? editingSection : s));
         setEditingSection(null);
         setError(null);
+        setSuccess('Section saved successfully!');
+        setTimeout(() => setSuccess(null), 3000);
       } else {
         setError('Failed to save section');
       }
@@ -137,96 +144,101 @@ export default function TextEditorPage() {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    router.push('/admin/login');
-  };
-
   if (!isAuthenticated || authLoading) {
     return null;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-          >
-            Logout
-          </button>
+    <AdminLayout title="Content Editor">
+      {/* Alerts */}
+      {error && (
+        <div className="mb-6 p-4 bg-error-50 border border-error-200 rounded-lg flex gap-3 animate-fade-in dark:bg-error-950 dark:border-error-900">
+          <AlertCircle className="text-error-600 dark:text-error-400 flex-shrink-0" size={20} />
+          <p className="text-error-700 dark:text-error-300">{error}</p>
         </div>
-      </div>
+      )}
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-            {error}
-          </div>
-        )}
+      {success && (
+        <div className="mb-6 p-4 bg-success-50 border border-success-200 rounded-lg flex gap-3 animate-fade-in dark:bg-success-950 dark:border-success-900">
+          <CheckCircle className="text-success-600 dark:text-success-400 flex-shrink-0" size={20} />
+          <p className="text-success-700 dark:text-success-300">{success}</p>
+        </div>
+      )}
 
-        {loading ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500">Loading pages...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {/* Sidebar - Page List */}
-            <div className="md:col-span-1">
-              <div className="bg-white rounded-lg shadow p-4 sticky top-6">
-                <h2 className="font-bold text-lg text-gray-900 mb-4">Pages</h2>
-                <div className="space-y-2">
-                  {pages.map(page => (
-                    <button
-                      key={page.id}
-                      onClick={() => selectPage(page)}
-                      className={`w-full text-left px-4 py-3 rounded transition-colors text-sm font-medium ${
-                        selectedPage?.id === page.id
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                      }`}
-                    >
-                      {page.title}
-                    </button>
-                  ))}
-                </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="animate-spin text-primary-600 dark:text-primary-400" size={32} />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Page Selection Card */}
+          <div className="lg:col-span-1">
+            <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-neutral-200 dark:border-neutral-800">
+                <h2 className="font-bold text-lg text-neutral-900 dark:text-neutral-50">Pages</h2>
               </div>
+              <nav className="p-3 space-y-1 max-h-[calc(100vh-300px)] overflow-y-auto">
+                {pages.map(page => (
+                  <button
+                    key={page.id}
+                    onClick={() => selectPage(page)}
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm font-medium ${
+                      selectedPage?.id === page.id
+                        ? 'bg-primary-600 text-white shadow-md hover:bg-primary-700'
+                        : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                    }`}
+                  >
+                    {page.title}
+                  </button>
+                ))}
+              </nav>
             </div>
+          </div>
 
-            {/* Main Content */}
-            <div className="md:col-span-3">
-              {selectedPage ? (
-                <div className="space-y-6">
-                  {/* Page Info */}
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedPage.title}</h2>
-                    <p className="text-gray-600 mb-4">{selectedPage.description}</p>
+          {/* Main Content */}
+          <div className="lg:col-span-3">
+            {selectedPage ? (
+              <div className="space-y-6">
+                {/* Page Info Card */}
+                <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 shadow-sm overflow-hidden">
+                  <div className="p-6">
+                    <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-50 mb-2">
+                      {selectedPage.title}
+                    </h2>
+                    <p className="text-neutral-600 dark:text-neutral-400 mb-4">
+                      {selectedPage.description}
+                    </p>
                     {selectedPage.hero_image_url && (
                       <img
                         src={selectedPage.hero_image_url}
                         alt="Hero"
-                        className="w-full max-h-64 object-cover rounded"
+                        className="w-full max-h-64 object-cover rounded-lg"
                       />
                     )}
                   </div>
+                </div>
 
-                  {/* Sections */}
-                  <div className="space-y-4">
-                    <h3 className="text-xl font-bold text-gray-900">Content Sections</h3>
-                    {sections.length === 0 ? (
-                      <p className="text-gray-500">No sections yet</p>
-                    ) : (
-                      sections.map(section => (
-                        <div key={section.id} className="bg-white rounded-lg shadow p-6">
+                {/* Sections */}
+                <div>
+                  <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-50 mb-4">
+                    Content Sections
+                  </h3>
+                  {sections.length === 0 ? (
+                    <div className="text-center py-12 bg-neutral-50 dark:bg-neutral-900/50 rounded-lg border border-dashed border-neutral-300 dark:border-neutral-700">
+                      <p className="text-neutral-500 dark:text-neutral-400">No sections yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {sections.map(section => (
+                        <div
+                          key={section.id}
+                          className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md"
+                        >
                           {editingSection?.id === section.id ? (
                             // Edit Mode
-                            <div className="space-y-4">
+                            <div className="p-6 space-y-5">
                               <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
                                   Section Title
                                 </label>
                                 <input
@@ -239,12 +251,12 @@ export default function TextEditorPage() {
                                     })
                                   }
                                   placeholder="Section Title"
-                                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  className="w-full px-4 py-2 border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
                                 />
                               </div>
 
                               <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
                                   Content
                                 </label>
                                 <textarea
@@ -256,93 +268,109 @@ export default function TextEditorPage() {
                                     })
                                   }
                                   placeholder="Content"
-                                  rows={4}
-                                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  rows={6}
+                                  className="w-full px-4 py-2 border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors resize-none"
                                 />
                               </div>
 
                               {/* Image Section */}
-                              <div className="border-t pt-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  Image
+                              <div className="border-t border-neutral-200 dark:border-neutral-800 pt-5">
+                                <label className="block text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-3">
+                                  Section Image
                                 </label>
                                 {editingSection.image_url && (
                                   <img
                                     src={editingSection.image_url}
                                     alt="Section"
-                                    className="w-full max-h-48 object-cover rounded mb-2"
+                                    className="w-full max-h-48 object-cover rounded-lg mb-3 border border-neutral-200 dark:border-neutral-700"
                                   />
                                 )}
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(e) => {
-                                    if (e.target.files?.[0]) {
-                                      handleImageUpload(e.target.files[0]);
-                                    }
-                                  }}
-                                  disabled={uploadingImage}
-                                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                />
-                                {uploadingImage && (
-                                  <p className="text-sm text-gray-500 mt-1">Uploading...</p>
-                                )}
+                                <label className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-neutral-300 dark:border-neutral-700 rounded-lg cursor-pointer hover:border-primary-500 dark:hover:border-primary-400 transition-colors">
+                                  <div className="flex flex-col items-center gap-2">
+                                    <ImageIcon size={20} className="text-neutral-400" />
+                                    <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
+                                      {uploadingImage ? 'Uploading...' : 'Click to upload image'}
+                                    </span>
+                                  </div>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                      if (e.target.files?.[0]) {
+                                        handleImageUpload(e.target.files[0]);
+                                      }
+                                    }}
+                                    disabled={uploadingImage}
+                                    className="hidden"
+                                  />
+                                </label>
                               </div>
 
-                              <div className="flex gap-2 pt-4 border-t">
-                                <button
+                              <div className="flex gap-3 pt-5 border-t border-neutral-200 dark:border-neutral-800">
+                                <Button
                                   onClick={handleSaveSection}
                                   disabled={saving}
-                                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium"
+                                  variant="default"
+                                  className="flex-1"
                                 >
-                                  {saving ? 'Saving...' : 'Save Changes'}
-                                </button>
-                                <button
+                                  {saving ? (
+                                    <>
+                                      <Loader2 size={16} className="animate-spin mr-2" />
+                                      Saving...
+                                    </>
+                                  ) : (
+                                    'Save Changes'
+                                  )}
+                                </Button>
+                                <Button
                                   onClick={() => setEditingSection(null)}
-                                  className="px-4 py-2 bg-gray-300 text-gray-900 rounded-lg hover:bg-gray-400 transition-colors font-medium"
+                                  variant="outline"
+                                  className="flex-1"
                                 >
                                   Cancel
-                                </button>
+                                </Button>
                               </div>
                             </div>
                           ) : (
                             // View Mode
-                            <div>
-                              <h4 className="font-bold text-lg text-gray-900 mb-2">
-                                {section.section_title}
-                              </h4>
-                              <p className="text-gray-700 mb-4 whitespace-pre-wrap">
-                                {section.content_text}
-                              </p>
+                            <div className="p-6">
+                              <div className="mb-4">
+                                <h4 className="font-bold text-lg text-neutral-900 dark:text-neutral-50 mb-3">
+                                  {section.section_title}
+                                </h4>
+                                <p className="text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap leading-relaxed">
+                                  {section.content_text}
+                                </p>
+                              </div>
                               {section.image_url && (
                                 <img
                                   src={section.image_url}
                                   alt={section.section_title}
-                                  className="w-full max-h-48 object-cover rounded mb-4"
+                                  className="w-full max-h-48 object-cover rounded-lg mb-4 border border-neutral-200 dark:border-neutral-700"
                                 />
                               )}
-                              <button
+                              <Button
                                 onClick={() => setEditingSection(section)}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                                variant="default"
                               >
                                 Edit Section
-                              </button>
+                              </Button>
                             </div>
                           )}
                         </div>
-                      ))
-                    )}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="text-center py-12 bg-white rounded-lg shadow">
-                  <p className="text-gray-500">Select a page to edit</p>
-                </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="text-center py-12 bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800">
+                <p className="text-neutral-500 dark:text-neutral-400">Select a page to edit</p>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </AdminLayout>
   );
 }
