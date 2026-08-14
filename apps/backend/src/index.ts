@@ -35,7 +35,13 @@ db.on('error', (err) => console.error('Unexpected postgres client error', err));
 
 // Enable CORS for frontend
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3010', 'http://127.0.0.1:3010'],
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:3010',
+    'http://127.0.0.1:3010',
+    'http://187.127.185.239:3000',
+    'http://187.127.185.239:3001'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
