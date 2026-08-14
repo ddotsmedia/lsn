@@ -8,6 +8,7 @@ import { createFacilitiesRouter } from './routes/facilities.js';
 import { createRegistrationsRouter } from './routes/registrations.js';
 import { createBookingsRouter } from './routes/bookings.js';
 import { createAdminRouter } from './routes/admin/index.js';
+import { createPageContentRouter } from './routes/pageContent.js';
 
 const app = express();
 const PORT = process.env.PORT || 3011;
@@ -41,6 +42,7 @@ app.use('/api/v1/facilities', createFacilitiesRouter(db));
 app.use('/api/v1/registrations', createRegistrationsRouter(db));
 app.use('/api/v1/tour-bookings', createBookingsRouter(db));
 app.use('/api/v1/admin', createAdminRouter(db));
+app.use('/api/v1', createPageContentRouter(db));
 
 app.listen(PORT, () => {
   console.log(`Backend running on port ${PORT}`);
