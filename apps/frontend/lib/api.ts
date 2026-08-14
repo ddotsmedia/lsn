@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3011';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 interface FetchOptions extends RequestInit {
   params?: Record<string, string | number | undefined>;
@@ -59,7 +59,7 @@ export async function api<T = unknown>(path: string, options: FetchOptions = {})
 // Auth helpers
 export async function login(email: string, password: string) {
   const data = await api<{ accessToken: string; refreshToken: string; user: Record<string, unknown> }>(
-    '/auth/login',
+    '/api/v1/auth/login',
     { method: 'POST', body: JSON.stringify({ email, password }) }
   );
   localStorage.setItem('lsn_token', data.accessToken);
@@ -73,7 +73,7 @@ export async function getMe() {
     isAdmin: boolean;
     role: string | null;
     permissions: string[];
-  }>('/auth/me');
+  }>('/api/v1/auth/me');
 }
 
 export function logout() {
