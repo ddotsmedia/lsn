@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface FooterLink {
   label: string;
@@ -85,6 +85,22 @@ const SOCIAL_LINKS: readonly SocialLink[] = [
   },
 ];
 
+/** Platform -> icon artwork. Labels double as the platform key. */
+const ICON_BY_PLATFORM = new Map<string, SocialLink>(
+  SOCIAL_LINKS.map((s) => [s.label.toLowerCase(), s])
+);
+
+/** Shown for platforms with no bespoke artwork yet (twitter, youtube, whatsapp). */
+const GENERIC_ICON =
+  'M12 2a10 10 0 100 20 10 10 0 000-20zm6.9 9h-3a15.5 15.5 0 00-1-5.1A8 8 0 0118.9 11zM12 4c.8 1.2 1.6 3.2 1.8 7h-3.6c.2-3.8 1-5.8 1.8-7zM5.1 11a8 8 0 014-5.1 15.5 15.5 0 00-1 5.1zm0 2h3a15.5 15.5 0 001 5.1 8 8 0 01-4-5.1zM12 20c-.8-1.2-1.6-3.2-1.8-7h3.6c-.2 3.8-1 5.8-1.8 7zm2.9-.9a15.5 15.5 0 001-5.1h3a8 8 0 01-4 5.1z';
+
+interface DbSocialLink {
+  id: string;
+  platform: string;
+  url: string;
+  display_order: number;
+}
+
 function FooterLinkList({ title, links }: { title: string; links: readonly FooterLink[] }) {
   return (
     <div>
@@ -105,8 +121,29 @@ function FooterLinkList({ title, links }: { title: string; links: readonly Foote
   );
 }
 
+/** Cached for the tab's lifetime: the footer renders on every page. */
+let socialCache: DbSocialLink[] | null = null;
+
 export default function Footer() {
   const mapQuery = encodeURIComponent(CONTACT.address.join(', '));
+  const [socials, setSocials] = useState<DbSocialLink[]>(socialCache ?? []);
+
+  useEffect(() => {
+    if (socialCache) return;
+    let cancelled = false;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/social-links`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((rows: DbSocialLink[]) => {
+        if (cancelled || !Array.isArray(rows)) return;
+        socialCache = rows;
+        setSocials(rows);
+      })
+      // Backend unreachable: show no icons rather than dead links.
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <footer className="bg-blue-700 text-blue-100/90">
@@ -184,24 +221,32 @@ export default function Footer() {
           <FooterLinkList title="Links" links={LINKS} />
           <FooterLinkList title="About" links={ABOUT_LINKS} />
 
-          <div>
-            <h3 className="mb-4 text-base font-semibold text-white">Follow Us</h3>
-            <ul className="flex flex-wrap gap-2.5">
-              {SOCIAL_LINKS.map((social) => (
-                <li key={social.label}>
-                  <a
-                    href={social.href}
-                    aria-label={social.label}
-                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full text-white shadow-md transition-transform hover:scale-110 ${social.color}`}
-                  >
-                    <svg width={16} height={16} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                      <path d={social.path} />
-                    </svg>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {socials.length > 0 && (
+            <div>
+              <h3 className="mb-4 text-base font-semibold text-white">Follow Us</h3>
+              <ul className="flex flex-wrap gap-2.5">
+                {socials.map((social) => {
+                  const icon = ICON_BY_PLATFORM.get(social.platform);
+                  const label = icon?.label ?? social.platform;
+                  return (
+                    <li key={social.id}>
+                      <a
+                        href={social.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`${label} (opens in a new tab)`}
+                        className={`inline-flex h-11 w-11 items-center justify-center rounded-full text-white shadow-md transition-transform hover:scale-110 ${icon?.color ?? 'bg-gray-700'}`}
+                      >
+                        <svg width={18} height={18} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <path d={icon?.path ?? GENERIC_ICON} />
+                        </svg>
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
         </div>
 
         <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 text-center text-sm text-blue-200/70 sm:flex-row sm:text-left">

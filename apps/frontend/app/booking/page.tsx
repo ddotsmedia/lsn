@@ -2,6 +2,7 @@
 
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { PageSections } from '@/components/PageSections';
 import { BenefitCard } from '@/components/BenefitCard';
 import { TourBookingForm } from '@/components/TourBookingForm';
 import { Butterfly, Flower } from '@/components/Decorations';
@@ -44,30 +45,38 @@ const TOUR_FACTS: readonly TourFact[] = [
   },
 ];
 
+/**
+ * Each card links to the page that actually answers it. /contact-us does not
+ * exist in this app — the contact route is /contact.
+ */
 const BENEFITS = [
   {
     icon: '🏢',
     title: 'See Our Facilities',
     description:
       'Modern classrooms, outdoor play areas, and specialized learning centers.',
+    href: '/facilities',
   },
   {
     icon: '👨‍🏫',
     title: 'Meet Our Team',
     description:
       "Experienced educators dedicated to your child's growth and happiness.",
+    href: '/nursery',
   },
   {
     icon: '📚',
     title: 'Learn About Programs',
     description:
       'Detailed information about our curriculum and approach to early learning.',
+    href: '/age-groups',
   },
   {
     icon: '❓',
     title: 'Ask Questions',
     description:
       'Get answers to all your questions about enrollment, schedules, and costs.',
+    href: '/contact',
   },
 ] as const;
 
@@ -185,11 +194,16 @@ export default function BookingPage() {
                   icon={benefit.icon}
                   title={benefit.title}
                   description={benefit.description}
+                  href={benefit.href}
                 />
               ))}
             </div>
           </div>
         </section>
+        {/* Text written in admin -> Pages -> Text. Renders nothing until a
+            section has content, so the copy above is untouched by default. */}
+        <PageSections pageSlug="booking" />
+
       </main>
 
       <Footer />

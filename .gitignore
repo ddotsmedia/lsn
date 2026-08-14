@@ -42,3 +42,14 @@ backups/
 # local reference material (legacy site dump + design PDFs) - not part of the build
 LittleSmarties-master/
 *.pdf
+
+# Accidentally committed nested checkout / compose backups
+littlesmarties/
+docker-compose.yml.bak
+docker-compose.yml.save
+
+# Playwright MCP session artifacts
+.playwright-mcp/
+
+# Screenshots Playwright writes to the repo root when given a bare filename
+/*.png

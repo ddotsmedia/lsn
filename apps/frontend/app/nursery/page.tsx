@@ -2,12 +2,17 @@
 
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { PageSections } from '@/components/PageSections';
 import { Button } from '@/components/Button';
 import { Carousel } from '@/components/Carousel';
 import { MissionCard, type MissionCardColor, type MissionCardTitle } from '@/components/MissionCard';
 import { StatCard } from '@/components/StatCard';
 import { TeamMemberCard } from '@/components/TeamMemberCard';
 import { Butterfly, Circle, Cloud, Flower } from '@/components/Decorations';
+import { HeroBackground } from '@/components/HeroBackground';
+import { usePageMedia } from '@/lib/media';
+import { useTestimonials, type ApiTestimonial } from '@/lib/testimonials';
+import { PageFeatureImages } from '@/components/PageFeatureImages';
 
 /* -------------------------------------------------------------------------- */
 /* Data                                                                        */
@@ -136,33 +141,46 @@ interface Testimonial {
   rating: number;
 }
 
-const TESTIMONIALS: readonly Testimonial[] = [
+/**
+ * Real reviews as published on the live site, kept as the fallback for when
+ * the API is unreachable or nothing is published for this page. Migration 025
+ * seeded the database from this list, so the two agree.
+ */
+const FALLBACK_TESTIMONIALS: readonly ApiTestimonial[] = [
   {
     quote:
       'My daughter has flourished at Little Smarties. The teachers are so caring and professional. I see her learning and growing every single day.',
-    author: 'Fatima Al-Mansouri',
-    location: 'Abu Dhabi',
+    id: 'Fatima Al-Mansouri',
+    author_name: 'Fatima Al-Mansouri',
+    author_title: 'Abu Dhabi',
+    author_image_url: null,
     rating: 5,
   },
   {
     quote:
       'Best decision we made for our son’s early education. The facilities are amazing and the teachers truly know each child individually.',
-    author: 'Mohammad Al-Mazrouei',
-    location: 'Abu Dhabi',
+    id: 'Mohammad Al-Mazrouei',
+    author_name: 'Mohammad Al-Mazrouei',
+    author_title: 'Abu Dhabi',
+    author_image_url: null,
     rating: 5,
   },
   {
     quote:
       'Little Smarties is a home away from home. My twins are happy, engaged, and learning so much. Highly recommended!',
-    author: 'Hana Al-Ketbi',
-    location: 'Abu Dhabi',
+    id: 'Hana Al-Ketbi',
+    author_name: 'Hana Al-Ketbi',
+    author_title: 'Abu Dhabi',
+    author_image_url: null,
     rating: 5,
   },
   {
     quote:
       'Professional, caring, and educational. Everything we look for in a nursery. Our child looks forward to going every day!',
-    author: 'Ahmed Al-Suwaidi',
-    location: 'Abu Dhabi',
+    id: 'Ahmed Al-Suwaidi',
+    author_name: 'Ahmed Al-Suwaidi',
+    author_title: 'Abu Dhabi',
+    author_image_url: null,
     rating: 5,
   },
 ];
@@ -203,16 +221,31 @@ function StarRating({ rating, max = 5 }: StarRatingProps) {
   );
 }
 
-function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
+function TestimonialCard({ testimonial }: { testimonial: ApiTestimonial }) {
   return (
     <figure className="flex h-full flex-col rounded-lg bg-white p-6 shadow-md transition-shadow duration-200 ease-in-out hover:shadow-lg md:p-8">
-      <StarRating rating={testimonial.rating} />
+      {/* Only when a rating was given: a review without one should not be
+          shown as five stars. */}
+      {testimonial.rating ? <StarRating rating={testimonial.rating} /> : null}
       <blockquote className="mt-4 grow text-base leading-relaxed text-gray-700">
         &ldquo;{testimonial.quote}&rdquo;
       </blockquote>
-      <figcaption className="mt-5 border-t border-gray-100 pt-4">
-        <span className="block font-semibold text-gray-800">{testimonial.author}</span>
-        <span className="block text-sm text-gray-600">{testimonial.location}</span>
+      <figcaption className="mt-5 flex items-center gap-3 border-t border-gray-100 pt-4">
+        {testimonial.author_image_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={testimonial.author_image_url}
+            alt=""
+            loading="lazy"
+            className="h-11 w-11 shrink-0 rounded-full object-cover"
+          />
+        )}
+        <span>
+          <span className="block font-semibold text-gray-800">{testimonial.author_name}</span>
+          {testimonial.author_title && (
+            <span className="block text-sm text-gray-600">{testimonial.author_title}</span>
+          )}
+        </span>
       </figcaption>
     </figure>
   );
@@ -223,6 +256,12 @@ function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
 /* -------------------------------------------------------------------------- */
 
 export default function NurseryPage() {
+  // Hero image uploaded via admin → Media Library → Pages. Absent until one is
+  // set, in which case the hero keeps its gradient.
+  const pageImages = usePageMedia('nursery');
+
+  // Managed in admin -> Testimonials. Falls back to the built-in reviews.
+  const testimonials = useTestimonials('about', FALLBACK_TESTIMONIALS);
   return (
     <>
       <Header />
@@ -235,6 +274,7 @@ export default function NurseryPage() {
           aria-labelledby="hero-heading"
           className="relative flex min-h-75 items-center justify-center overflow-hidden bg-gradient-to-br from-blue-800 to-blue-500 px-4 lg:min-h-125"
         >
+          <HeroBackground image={pageImages.hero} />
           {/* Decorative accents — hidden from assistive tech. */}
           <Butterfly className="absolute left-[6%] top-[18%] w-16 text-white opacity-20 lg:w-24" />
           <Flower className="absolute right-[8%] top-[22%] w-12 text-white opacity-20 lg:w-20" />
@@ -256,11 +296,22 @@ export default function NurseryPage() {
         {/* ---------------------------------------------------------------- */}
         <section aria-labelledby="intro-heading" className="bg-white py-16 md:py-24">
           <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-8 px-4 md:px-6 lg:grid-cols-2 lg:gap-12 lg:px-8">
-            <div
-              className="order-1 aspect-4/3 w-full rounded-lg bg-gradient-to-br from-blue-100 to-blue-200"
-              role="img"
-              aria-label="Little Smarties Early Learning Centre"
-            />
+            {/* The first uploaded feature image, or the tinted placeholder
+                this section has always shown when none is set. */}
+            {pageImages.feature_1 ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={pageImages.feature_1.url}
+                alt={pageImages.feature_1.alt_text || 'Little Smarties Early Learning Centre'}
+                className="order-1 aspect-4/3 w-full rounded-lg object-cover shadow-md"
+              />
+            ) : (
+              <div
+                className="order-1 aspect-4/3 w-full rounded-lg bg-gradient-to-br from-blue-100 to-blue-200"
+                role="img"
+                aria-label="Little Smarties Early Learning Centre"
+              />
+            )}
 
             <div className="order-2 p-0 md:p-2 lg:p-4">
               <h2
@@ -295,6 +346,14 @@ export default function NurseryPage() {
             </div>
           </div>
         </section>
+
+        {/* Remaining uploaded photographs. Skipped entirely when the slots are
+            empty, so the page reads as before until images are added. */}
+        <PageFeatureImages
+          images={pageImages}
+          slots={['feature_2', 'feature_3']}
+          className="bg-white pb-16 md:pb-24"
+        />
 
         {/* ---------------------------------------------------------------- */}
         {/* 3. Mission, vision, values                                       */}
@@ -443,7 +502,7 @@ export default function NurseryPage() {
             {/* Mobile and tablet: swipeable carousel. */}
             <div className="lg:hidden">
               <Carousel
-                items={TESTIMONIALS}
+                items={testimonials}
                 ariaLabel="Parent testimonials"
                 renderItem={(testimonial) => (
                   <div className="h-full px-1 pb-2">
@@ -455,8 +514,8 @@ export default function NurseryPage() {
 
             {/* Desktop: all four side by side. */}
             <div className="hidden gap-6 lg:grid lg:grid-cols-4 lg:gap-8">
-              {TESTIMONIALS.map((testimonial) => (
-                <TestimonialCard key={testimonial.author} testimonial={testimonial} />
+              {testimonials.map((testimonial) => (
+                <TestimonialCard key={testimonial.id} testimonial={testimonial} />
               ))}
             </div>
           </div>
@@ -486,6 +545,10 @@ export default function NurseryPage() {
             </div>
           </div>
         </section>
+        {/* Text written in admin -> Pages -> Text. Renders nothing until a
+            section has content, so the copy above is untouched by default. */}
+        <PageSections pageSlug="about" />
+
       </main>
 
       <Footer />

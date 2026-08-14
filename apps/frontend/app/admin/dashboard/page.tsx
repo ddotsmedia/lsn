@@ -5,6 +5,10 @@ import { api } from '../../../lib/api';
 import { StatCard, StatusBadge } from '../../../components/admin/shared';
 
 interface DashboardData {
+  totalStudents: number;
+  totalRegistrations: number;
+  pageViews: number;
+  visitedPages: Array<{ path: string; count: number }>;
   registrations: { total: number; pending: number; approved: number; rejected: number; last_30_days: number };
   bookings: { total: number; pending: number; confirmed: number; cancelled: number; upcoming: number };
   events: { total: number };
@@ -15,16 +19,58 @@ interface DashboardData {
     id: string; action: string; entity_type: string; entity_id: string;
     admin_name: string; created_at: string; details: Record<string, unknown>;
   }>;
+  /** Names of the statistics the server could not compute this time. */
+  degraded?: string[];
+}
+
+/** Horizontal bars, so long page paths stay readable at any width. */
+function TopPagesChart({ pages }: { pages: Array<{ path: string; count: number }> }) {
+  if (pages.length === 0) {
+    return (
+      <p className="text-sm text-zinc-500">
+        No data available yet — page views appear here once visitors browse the site.
+      </p>
+    );
+  }
+
+  // Scaled against the busiest page, so the chart uses its full width whatever
+  // the absolute numbers are.
+  const max = Math.max(...pages.map((p) => p.count), 1);
+
+  return (
+    <div className="space-y-2.5">
+      {pages.map((page) => (
+        <div key={page.path} className="flex items-center gap-3">
+          <span className="w-40 shrink-0 truncate text-sm text-zinc-400" title={page.path}>
+            {page.path}
+          </span>
+          <div className="h-5 flex-1 overflow-hidden rounded bg-zinc-800/60">
+            <div
+              className="h-full rounded bg-gradient-to-r from-emerald-500/70 to-emerald-400 transition-all duration-500"
+              style={{ width: `${Math.max((page.count / max) * 100, 2)}%` }}
+            />
+          </div>
+          <span className="w-12 shrink-0 text-right text-sm font-medium tabular-nums text-zinc-200">
+            {page.count}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api<DashboardData>('/admin/users/dashboard')
-      .then(setData)
-      .catch(console.error)
+    api<DashboardData>('/admin/dashboard/stats')
+      .then((res) => { setData(res); setError(null); })
+      .catch((err: unknown) => {
+        console.error(err);
+        setError(err instanceof Error ? err.message : 'Failed to load dashboard');
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -36,24 +82,52 @@ export default function DashboardPage() {
     );
   }
 
-  if (!data) return <p className="text-zinc-500">Failed to load dashboard</p>;
+  if (!data) {
+    return (
+      <div className="rounded-xl border border-zinc-800/50 bg-[#111119] p-8 text-center">
+        <p className="text-sm text-zinc-300">No data available</p>
+        <p className="mt-1 text-xs text-zinc-500">{error ?? 'The dashboard could not be loaded.'}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-4 rounded-lg border border-zinc-700 bg-zinc-800/50 px-4 py-2 text-sm text-zinc-300 transition-colors hover:bg-zinc-800"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
+      {data.degraded && data.degraded.length > 0 && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-400">
+          Some statistics are unavailable ({data.degraded.join(', ')}). Everything else below is current.
+        </div>
+      )}
+
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Registrations" value={data.registrations.total} sublabel={`${data.registrations.pending} pending`} accent="emerald" />
-        <StatCard label="Tour Bookings" value={data.bookings.total} sublabel={`${data.bookings.upcoming} upcoming`} accent="blue" />
-        <StatCard label="Page Views Today" value={data.analytics.viewsToday} sublabel={`${data.analytics.viewsWeek} this week`} accent="purple" />
-        <StatCard label="Gallery" value={data.gallery.total_images} sublabel={`${data.gallery.total_categories} categories`} accent="amber" />
+        <StatCard label="Total Students" value={data.totalStudents} sublabel="approved registrations" accent="emerald" />
+        <StatCard label="Total Registrations" value={data.totalRegistrations} sublabel={`${data.registrations.pending} pending`} accent="blue" />
+        <StatCard label="Total Page Views" value={data.pageViews} sublabel={`${data.analytics.viewsToday} today`} accent="purple" />
+        <StatCard label="Tour Bookings" value={data.bookings.total} sublabel={`${data.bookings.upcoming} upcoming`} accent="amber" />
       </div>
 
       {/* Second row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="News & Events" value={data.events.total} accent="blue" />
         <StatCard label="Pages" value={data.pages.total} sublabel={`${data.pages.published} published`} accent="emerald" />
-        <StatCard label="Pending Registrations" value={data.registrations.pending} accent="amber" />
+        <StatCard label="Gallery" value={data.gallery.total_images} sublabel={`${data.gallery.total_categories} categories`} accent="purple" />
         <StatCard label="Pending Bookings" value={data.bookings.pending} accent="amber" />
+      </div>
+
+      {/* Top visited pages */}
+      <div className="bg-[#111119] rounded-xl border border-zinc-800/50 p-6">
+        <div className="mb-4 flex items-baseline justify-between">
+          <h3 className="text-sm font-medium text-zinc-300">Top Visited Pages</h3>
+          <span className="text-xs text-zinc-500">{data.analytics.viewsWeek} views this week</span>
+        </div>
+        <TopPagesChart pages={data.visitedPages} />
       </div>
 
       {/* Registration status breakdown */}

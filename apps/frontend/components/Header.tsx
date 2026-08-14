@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button } from './Button';
+import { useSiteMedia } from '../lib/media';
 
 export interface NavLink {
   label: string;
@@ -99,6 +100,11 @@ export default function Header({ currentPage }: HeaderProps = {}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
+  // An uploaded logo replaces the drawn mark. Until one exists — or if the
+  // request fails — LogoMark renders exactly as before.
+  const siteMedia = useSiteMedia();
+  const logo = siteMedia.logo ?? null;
+
   const activePath = currentPage ?? pathname ?? '/';
 
   // Deepen the header shadow once the page has scrolled away from the top.
@@ -138,7 +144,16 @@ export default function Header({ currentPage }: HeaderProps = {}) {
           href="/"
           className="flex items-center gap-2 rounded-lg text-lg font-bold text-blue-800 transition-colors duration-200 hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-800 md:text-xl"
         >
-          <LogoMark />
+          {logo ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={logo.url}
+              alt={logo.alt_text || 'Little Smarties'}
+              className="h-8 w-auto max-w-35 object-contain"
+            />
+          ) : (
+            <LogoMark />
+          )}
           <span>Little Smarties</span>
         </Link>
 

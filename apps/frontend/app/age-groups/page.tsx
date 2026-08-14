@@ -3,10 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { PageSections } from '@/components/PageSections';
+import { PageFeatureImages } from '@/components/PageFeatureImages';
+import { HeroBackground } from '@/components/HeroBackground';
 import { Button } from '@/components/Button';
 import { AgeGroupCard, type AgeGroupColor } from '@/components/AgeGroupCard';
 import { QuickFactsCard } from '@/components/QuickFactsCard';
 import { Butterfly, Flower } from '@/components/Decorations';
+import { useAgeGroupMedia, useAgeGroupIcons, usePageMedia, slugify } from '@/lib/media';
+import type { SiteImage } from '@/lib/media';
+import { Modal } from '@/components/Modal';
 
 /* -------------------------------------------------------------------------- */
 /* Data                                                                        */
@@ -36,6 +42,16 @@ interface AgeGroup {
   /** Tailwind gradient for the placeholder image in the detail panel. */
   gradient: string;
 }
+
+/** Module scope so the array identity is stable across renders. */
+const AGE_GROUP_SLUGS: readonly string[] = [
+  'bouncing-bunnies',
+  'precious-pandas',
+  'gentle-giraffes',
+  'dazzling-dolphins',
+  'fuzzy-foxes',
+  'cuddly-camels',
+];
 
 const AGE_GROUPS: readonly AgeGroup[] = [
   {
@@ -304,6 +320,8 @@ const DETAIL_SECTION_ID = 'age-group-detail';
 /* -------------------------------------------------------------------------- */
 
 export default function AgeGroupsPage() {
+  // Page-level images, separate from the per-age-group ones below.
+  const pageImages = usePageMedia('age-groups');
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const detailRef = useRef<HTMLElement>(null);
@@ -344,6 +362,18 @@ export default function AgeGroupsPage() {
   }, []);
 
   const selected = selectedIndex === null ? null : (AGE_GROUPS[selectedIndex] ?? null);
+
+  // Images uploaded for this group in the admin Media Library. The slug is
+  // derived from the name the same way the admin panel derives it.
+  const ageGroupImages = useAgeGroupMedia(selected ? slugify(selected.name) : null);
+  const heroImage = ageGroupImages.hero;
+  const galleryImages = ageGroupImages.gallery;
+
+  /** Enlarged gallery image, so a photo can be seen at a useful size. */
+  const [lightbox, setLightbox] = useState<SiteImage | null>(null);
+
+  // Icons for every card, fetched once rather than per card.
+  const groupIcons = useAgeGroupIcons(AGE_GROUP_SLUGS);
   const previousGroup =
     selectedIndex === null || selectedIndex === 0 ? null : AGE_GROUPS[selectedIndex - 1];
   const nextGroup =
@@ -363,6 +393,7 @@ export default function AgeGroupsPage() {
           aria-labelledby="hero-heading"
           className="relative flex min-h-75 items-center justify-center overflow-hidden bg-gradient-to-br from-blue-500 to-red-600 px-4 lg:min-h-125"
         >
+          <HeroBackground image={pageImages.hero} />
           <Butterfly className="absolute left-[7%] top-[18%] w-16 text-white opacity-20 lg:w-24" />
           <Flower className="absolute right-[9%] top-[24%] w-12 text-white opacity-20 lg:w-20" />
           <Flower className="absolute bottom-[16%] left-[14%] w-14 text-white opacity-20 lg:w-24" />
@@ -401,6 +432,8 @@ export default function AgeGroupsPage() {
                 <AgeGroupCard
                   key={group.id}
                   emoji={group.emoji}
+                  iconUrl={groupIcons[slugify(group.name)]?.url}
+                  iconAlt={groupIcons[slugify(group.name)]?.alt_text}
                   name={group.name}
                   range={group.range}
                   description={group.description}
@@ -428,16 +461,26 @@ export default function AgeGroupsPage() {
           >
             <div className="mx-auto max-w-6xl px-4 md:px-6 lg:px-8">
               <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-2 lg:gap-12">
-                {/* Placeholder image */}
-                <div
-                  className={`aspect-5/6 w-full rounded-lg bg-gradient-to-br ${selected.gradient} flex items-center justify-center lg:sticky lg:top-24`}
-                  role="img"
-                  aria-label={`${selected.name}, ${selected.range}`}
-                >
-                  <span className="text-7xl md:text-8xl" aria-hidden="true">
-                    {selected.emoji}
-                  </span>
-                </div>
+                {/* An uploaded hero replaces the gradient placeholder. Until
+                    one exists the emoji panel renders exactly as before. */}
+                {heroImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={heroImage.url}
+                    alt={heroImage.alt_text || `${selected.name}, ${selected.range}`}
+                    className="aspect-5/6 w-full rounded-lg object-cover lg:sticky lg:top-24"
+                  />
+                ) : (
+                  <div
+                    className={`aspect-5/6 w-full rounded-lg bg-gradient-to-br ${selected.gradient} flex items-center justify-center lg:sticky lg:top-24`}
+                    role="img"
+                    aria-label={`${selected.name}, ${selected.range}`}
+                  >
+                    <span className="text-7xl md:text-8xl" aria-hidden="true">
+                      {selected.emoji}
+                    </span>
+                  </div>
+                )}
 
                 {/* Content */}
                 <div>
@@ -519,6 +562,42 @@ export default function AgeGroupsPage() {
                 </div>
               </div>
 
+              {/* Gallery
+                  Images uploaded in admin -> Age Groups -> Programmes. The
+                  whole block is skipped while a group has none, so a group
+                  without photographs reads exactly as it did before. */}
+              {galleryImages.length > 0 && (
+                <>
+                  <h3 className="mt-14 mb-6 text-xl font-semibold text-gray-800 md:text-2xl">
+                    Inside {selected.name}
+                  </h3>
+                  {/* Scroll-snap on small screens, grid from sm up: a carousel
+                      needs no library to feel right on a phone. */}
+                  <ul className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 scrollbar-none sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-3">
+                    {galleryImages.map((image) => (
+                      <li
+                        key={image.id}
+                        className="w-[78%] shrink-0 snap-center sm:w-auto"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setLightbox(image)}
+                          className="block w-full overflow-hidden rounded-lg shadow-md transition-transform duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-800 md:hover:scale-[1.02]"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={image.url}
+                            alt={image.alt_text || `${selected.name} at Little Smarties`}
+                            loading="lazy"
+                            className="aspect-4/3 w-full object-cover"
+                          />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
               {/* Quick facts */}
               <h3 className="mt-14 mb-6 text-xl font-semibold text-gray-800 md:text-2xl">
                 Quick Facts
@@ -553,9 +632,36 @@ export default function AgeGroupsPage() {
           </section>
         )}
 
+        {/* Text written in admin -> Pages -> Text. Renders nothing until a
+            section has content, so the copy above is untouched by default. */}
+        <PageFeatureImages images={pageImages} className="bg-white py-16 md:py-24" />
+
+        <PageSections pageSlug="age-groups" />
+
       </main>
 
       <Footer />
+
+      <Modal
+        isOpen={lightbox !== null}
+        onClose={() => setLightbox(null)}
+        size="lg"
+        ariaLabel={lightbox?.alt_text || 'Enlarged photograph'}
+      >
+        {lightbox && (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={lightbox.url}
+              alt={lightbox.alt_text || ''}
+              className="max-h-[75vh] w-full rounded-lg object-contain"
+            />
+            {lightbox.alt_text && (
+              <p className="mt-3 text-center text-sm text-gray-600">{lightbox.alt_text}</p>
+            )}
+          </>
+        )}
+      </Modal>
     </>
   );
 }

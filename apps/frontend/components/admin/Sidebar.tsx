@@ -8,15 +8,21 @@ const NAV_ITEMS = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: '◉' },
   { href: '/admin/registrations', label: 'Registrations', icon: '◈' },
   { href: '/admin/bookings', label: 'Tour Bookings', icon: '◇' },
+  { href: '/admin/chatbot', label: 'Chatbot', icon: '◍' },
   { href: '/admin/pages', label: 'Pages', icon: '◻' },
+  { href: '/admin/media', label: 'Media Library', icon: '▨' },
+  { href: '/admin/partners', label: 'Partners', icon: '◈' },
+  { href: '/admin/testimonials', label: 'Testimonials', icon: '❝' },
   { href: '/admin/events', label: 'News & Events', icon: '◆' },
   { href: '/admin/gallery', label: 'Gallery', icon: '▣' },
   { href: '/admin/facilities', label: 'Facilities', icon: '▧' },
   { href: '/admin/age-groups', label: 'Age Groups', icon: '▤' },
+  { href: '/admin/settings/social-media', label: 'Social Media', icon: '◈' },
   { href: '/admin/seo', label: 'SEO Settings', icon: '◎' },
   { href: '/admin/analytics', label: 'Analytics', icon: '◫' },
   { href: '/admin/users', label: 'Users & Roles', icon: '◑' },
   { href: '/admin/activity-log', label: 'Activity Log', icon: '◌' },
+  { href: '/admin/recycle-bin', label: 'Recycle Bin', icon: '⧉' },
 ];
 
 export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {

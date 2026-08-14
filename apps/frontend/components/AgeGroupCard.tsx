@@ -6,6 +6,9 @@ export type AgeGroupColor = 'pink' | 'purple' | 'blue' | 'red' | 'green' | 'yell
 
 export interface AgeGroupCardProps {
   emoji: string;
+  /** Uploaded icon. Replaces the emoji when one has been set in the admin panel. */
+  iconUrl?: string | null;
+  iconAlt?: string | null;
   name: string;
   range: string;
   description: string;
@@ -53,6 +56,8 @@ const COLOR_CLASSES: Record<AgeGroupColor, { surface: string; ring: string; acce
  */
 export function AgeGroupCard({
   emoji,
+  iconUrl,
+  iconAlt,
   name,
   range,
   description,
@@ -79,9 +84,14 @@ export function AgeGroupCard({
         className,
       )}
     >
-      <span className="mb-3 text-4xl md:text-5xl" aria-hidden="true">
-        {emoji}
-      </span>
+      {iconUrl ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src={iconUrl} alt={iconAlt || ''} className="mb-3 h-12 w-12 object-contain md:h-14 md:w-14" />
+      ) : (
+        <span className="mb-3 text-4xl md:text-5xl" aria-hidden="true">
+          {emoji}
+        </span>
+      )}
 
       <h3 className="text-xl font-bold text-gray-800 md:text-2xl">{name}</h3>
       <p className={cx('mt-1 text-base font-semibold md:text-lg', palette.accent)}>{range}</p>

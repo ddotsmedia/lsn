@@ -8,6 +8,7 @@ export function createGalleryRouter(db: Pool): express.Router {
   const resolveAdmin = createResolveAdmin(db);
 
   router.get('/', (req, res) => contentController.getGallery(db, req, res));
+  router.get('/categories', (req, res) => contentController.getGalleryCategories(db, req, res));
   router.post('/', authenticate, resolveAdmin, requireAdmin, (req, res) =>
     contentController.createGalleryImage(db, req, res)
   );

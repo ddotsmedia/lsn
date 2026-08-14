@@ -59,18 +59,28 @@ type FieldErrors = Record<string, string>;
 const STEP_LABELS = ['Child Info', 'Parent Info', 'Preferences', 'Review'] as const;
 const TOTAL_STEPS = STEP_LABELS.length;
 
+/** A programme as /api/v1/age-groups returns it. */
+interface ApiAgeGroup {
+  id: string;
+  name: string;
+  min_age_months: number;
+  max_age_months: number;
+}
+
 /**
- * These ids are the rows seeded in the `age_groups` table, which the
- * registrations API references by foreign key. The Age Groups page also
- * advertises a 0-1 year programme, but no matching row exists yet, so it
- * cannot be offered here without the insert failing.
+ * Turns 0-12 months into "0 - 1 year", which is how the site talks about the
+ * programmes everywhere else. Whole years where they divide evenly, months
+ * otherwise.
  */
-const AGE_GROUP_OPTIONS: readonly SelectOption[] = [
-  { value: '1', label: '18 months - 2 years' },
-  { value: '2', label: '2 - 3 years' },
-  { value: '3', label: '3 - 4 years' },
-  { value: '4', label: '4 - 5 years' },
-];
+function ageRangeLabel(minMonths: number, maxMonths: number): string {
+  const asYears = (months: number) => months / 12;
+  if (minMonths % 12 === 0 && maxMonths % 12 === 0) {
+    const from = asYears(minMonths);
+    const to = asYears(maxMonths);
+    return `${from} - ${to} year${to === 1 ? '' : 's'}`;
+  }
+  return `${minMonths} - ${maxMonths} months`;
+}
 
 const RELATIONSHIP_OPTIONS: readonly SelectOption[] = [
   { value: 'Mother', label: 'Mother' },
@@ -162,6 +172,36 @@ function nextMonday(from: Date): Date {
 
 function labelFor(options: readonly SelectOption[], value: string): string {
   return options.find((option) => option.value === value)?.label ?? value;
+}
+
+/**
+ * Everything the form asks for that has no column of its own, gathered into the
+ * message field. Without this the gender, dietary needs, preferred start date
+ * and programme choice were collected from the family and then thrown away.
+ */
+function buildRegistrationNotes(data: RegistrationData): string {
+  const { childInfo, parentInfo, preferences } = data;
+  const lines: string[] = [];
+
+  if (childInfo.gender) lines.push(`Gender: ${childInfo.gender}`);
+  if (childInfo.hasSpecialNeeds) lines.push('Has special needs: yes');
+  if (childInfo.dietaryRestrictions.trim()) {
+    lines.push(`Dietary needs: ${childInfo.dietaryRestrictions.trim()}`);
+  }
+  if (parentInfo.relationship) lines.push(`Relationship: ${parentInfo.relationship}`);
+  if (parentInfo.secondaryPhone.trim()) lines.push(`Second phone: ${parentInfo.secondaryPhone.trim()}`);
+  const address = [parentInfo.address.trim(), parentInfo.city.trim()].filter(Boolean).join(', ');
+  if (address) lines.push(`Address: ${address}`);
+  if (preferences.programType) lines.push(`Programme: ${preferences.programType}`);
+  if (preferences.startDate) lines.push(`Preferred start: ${preferences.startDate}`);
+  if (preferences.communicationPreference.length > 0) {
+    lines.push(`Contact by: ${preferences.communicationPreference.join(', ')}`);
+  }
+  if (preferences.additionalRequests.trim()) {
+    lines.push(`Notes: ${preferences.additionalRequests.trim()}`);
+  }
+
+  return lines.join('\n');
 }
 
 function formatDisplayDate(iso: string): string {
@@ -277,6 +317,33 @@ export function RegistrationForm({ onSuccess, className }: RegistrationFormProps
   const [currentStep, setCurrentStep] = useState(1);
   const [data, setData] = useState<RegistrationData>(EMPTY_DATA);
   const [errors, setErrors] = useState<FieldErrors>({});
+
+  /**
+   * The programmes come from the API so their ids are the real ones the
+   * registrations foreign key expects. They used to be hardcoded as '1'-'4',
+   * which matched no row, and the 0-1 year programme was missing entirely.
+   */
+  const [ageGroups, setAgeGroups] = useState<ApiAgeGroup[]>([]);
+  const [ageGroupsFailed, setAgeGroupsFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/age-groups`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('failed'))))
+      .then((rows: ApiAgeGroup[]) => {
+        if (cancelled) return;
+        if (!Array.isArray(rows) || rows.length === 0) { setAgeGroupsFailed(true); return; }
+        // Youngest first, so the list reads in the order a family expects.
+        setAgeGroups([...rows].sort((a, b) => a.min_age_months - b.min_age_months));
+      })
+      .catch(() => { if (!cancelled) setAgeGroupsFailed(true); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const ageGroupOptions: readonly SelectOption[] = ageGroups.map((group) => ({
+    value: group.id,
+    label: `${group.name} (${ageRangeLabel(group.min_age_months, group.max_age_months)})`,
+  }));
   const [showErrors, setShowErrors] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -334,7 +401,10 @@ export function RegistrationForm({ onSuccess, className }: RegistrationFormProps
       }
 
       if (!gender) found.gender = 'Please select an option.';
-      if (!ageGroupId) found.ageGroupId = 'Please choose an age group.';
+      // Normally required, but not when the list could not be loaded — the
+      // family should not be blocked by our own outage. The column is nullable
+      // and the office confirms the group on the follow-up call.
+      if (!ageGroupId && !ageGroupsFailed) found.ageGroupId = 'Please choose an age group.';
     }
 
     if (step === 2) {
@@ -420,15 +490,22 @@ export function RegistrationForm({ onSuccess, className }: RegistrationFormProps
     setSubmitError(null);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/registrations`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/registrations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        // Field names match the registrations table. They used to be
+        // first_name/last_name/email/phone, none of which are columns, and
+        // age_group_id was cast to a Number when the column is a UUID.
         body: JSON.stringify({
-          first_name: data.childInfo.firstName.trim(),
-          last_name: data.childInfo.lastName.trim(),
-          email: data.parentInfo.email.trim(),
-          phone: data.parentInfo.phoneNumber.trim(),
-          age_group_id: Number(data.childInfo.ageGroupId),
+          child_name: `${data.childInfo.firstName.trim()} ${data.childInfo.lastName.trim()}`.trim(),
+          child_dob: data.childInfo.dateOfBirth,
+          parent_name: data.parentInfo.fullName.trim(),
+          parent_email: data.parentInfo.email.trim(),
+          parent_phone: data.parentInfo.phoneNumber.trim(),
+          age_group_id: data.childInfo.ageGroupId || null,
+          // The rest of the form has no columns of its own, so it is kept as a
+          // note rather than being silently discarded.
+          message: buildRegistrationNotes(data),
         }),
       });
 
@@ -563,9 +640,16 @@ export function RegistrationForm({ onSuccess, className }: RegistrationFormProps
             value={data.childInfo.ageGroupId}
             onChange={(value) => updateChild('ageGroupId', value)}
             error={errorFor('ageGroupId')}
-            options={AGE_GROUP_OPTIONS}
+            options={ageGroupOptions}
             required
           />
+          {ageGroupsFailed && (
+            <p className="-mt-4 mb-6 text-sm text-amber-700">
+              We couldn&rsquo;t load the programme list just now. You can still submit the form and
+              we will confirm the right group with you, or call us on{' '}
+              <a href="tel:+971562677747" className="font-semibold underline">+971 56 267 7747</a>.
+            </p>
+          )}
 
           <Checkbox
             label="My child has special needs"
@@ -773,7 +857,7 @@ export function RegistrationForm({ onSuccess, className }: RegistrationFormProps
               />
               <ReviewRow
                 label="Age Group"
-                value={labelFor(AGE_GROUP_OPTIONS, data.childInfo.ageGroupId)}
+                value={labelFor(ageGroupOptions, data.childInfo.ageGroupId)}
               />
               <ReviewRow
                 label="Special Needs"

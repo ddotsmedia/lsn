@@ -56,7 +56,7 @@ export function TimeSlotPicker({
     setLoadError(false);
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/tour-bookings/availability?date=${date}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/tour-bookings/availability?date=${date}`,
         { signal },
       );
       if (!response.ok) throw new Error('Availability lookup failed');

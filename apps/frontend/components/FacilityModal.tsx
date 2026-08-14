@@ -155,14 +155,27 @@ export function FacilityModal({
           Gallery
         </h3>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {GALLERY_GRADIENTS.map((gradient, index) => (
-            <div
-              key={gradient}
-              className={`aspect-4/3 rounded-lg bg-gradient-to-br ${gradient}`}
-              role="img"
-              aria-label={`${facility.name} photo ${index + 1} placeholder`}
-            />
-          ))}
+          {/* Real photographs once any have been uploaded for this facility in
+              the admin panel; the tinted placeholders until then. */}
+          {facility.images && facility.images.length > 0
+            ? facility.images.map((src, index) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={src}
+                  src={src}
+                  alt={`${facility.name}, photo ${index + 1}`}
+                  loading="lazy"
+                  className="aspect-4/3 w-full rounded-lg object-cover"
+                />
+              ))
+            : GALLERY_GRADIENTS.map((gradient, index) => (
+                <div
+                  key={gradient}
+                  className={`aspect-4/3 rounded-lg bg-gradient-to-br ${gradient}`}
+                  role="img"
+                  aria-label={`${facility.name} photo ${index + 1} placeholder`}
+                />
+              ))}
         </div>
       </section>
 

@@ -1,19 +1,61 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { PageSections } from '@/components/PageSections';
 import { Button } from '@/components/Button';
 import { FacilityCard } from '@/components/FacilityCard';
 import { FacilityModal, type Facility } from '@/components/FacilityModal';
 import { SafetyCard, type SafetyCardColor } from '@/components/SafetyCard';
 import { Cloud, Flower } from '@/components/Decorations';
+import { HeroBackground } from '@/components/HeroBackground';
+import { PageFeatureImages } from '@/components/PageFeatureImages';
+import { usePageMedia } from '@/lib/media';
 
 /* -------------------------------------------------------------------------- */
 /* Data                                                                        */
 /* -------------------------------------------------------------------------- */
 
-const FACILITIES: readonly Facility[] = [
+/** A facility as the API returns it. */
+interface ApiFacility {
+  id: string;
+  name: string;
+  description: string | null;
+  detailed_description: string | null;
+  icon: string | null;
+  features?: string[];
+  amenities?: string[];
+  images?: { url: string }[];
+}
+
+/**
+ * The API's shape into the one the card and modal already take. Icons are
+ * emoji in the seeded rows but the column also holds names like "classroom"
+ * from the older records, so a non-emoji value falls back to a neutral glyph
+ * rather than printing the word.
+ */
+function toFacility(row: ApiFacility, index: number): Facility {
+  const icon = (row.icon ?? '').trim();
+  const isEmoji = icon !== '' && !/^[a-z0-9 _-]+$/i.test(icon);
+  return {
+    id: index + 1,
+    emoji: isEmoji ? icon : '🏫',
+    name: row.name,
+    description: row.description ?? '',
+    features: row.features ?? [],
+    detailedDescription: row.detailed_description ?? row.description ?? '',
+    amenities: row.amenities ?? [],
+    images: (row.images ?? []).map((i) => i.url),
+  };
+}
+
+/**
+ * Built-in copy, kept as the fallback for when the API is unreachable. The
+ * live list comes from admin -> Facilities; this is what the page showed
+ * before it became dynamic, and migration 019 seeded the database from it.
+ */
+const FALLBACK_FACILITIES: readonly Facility[] = [
   {
     id: 1,
     emoji: '🏫',
@@ -281,24 +323,47 @@ const TECHNOLOGY_FEATURES: readonly string[] = [
 /* -------------------------------------------------------------------------- */
 
 export default function FacilitiesPage() {
+  // Slots set in admin → Pages → Facilities → Images. Absent until one is set,
+  // in which case the hero keeps its gradient.
+  const pageImages = usePageMedia('facilities');
+  // Only the slots that have been filled, in order, so two images lay out as a
+  // pair rather than leaving a gap where the third would be.
+  const featureImages = ['feature_1', 'feature_2', 'feature_3']
+    .map((slot) => pageImages[slot])
+    .filter(Boolean);
+  const [facilities, setFacilities] = useState<readonly Facility[]>(FALLBACK_FACILITIES);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  // Managed in admin -> Facilities. On any failure the built-in list stands, so
+  // a backend problem never empties the page.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/facilities`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('failed'))))
+      .then((rows: ApiFacility[]) => {
+        if (cancelled || !Array.isArray(rows) || rows.length === 0) return;
+        setFacilities(rows.map(toFacility));
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
 
   const closeModal = useCallback(() => setSelectedIndex(null), []);
 
   // Wrap around at both ends so navigation never dead-ends.
   const goToPrevious = useCallback(() => {
     setSelectedIndex((current) =>
-      current === null ? null : (current - 1 + FACILITIES.length) % FACILITIES.length,
+      current === null ? null : (current - 1 + facilities.length) % facilities.length,
     );
   }, []);
 
   const goToNext = useCallback(() => {
     setSelectedIndex((current) =>
-      current === null ? null : (current + 1) % FACILITIES.length,
+      current === null ? null : (current + 1) % facilities.length,
     );
   }, []);
 
-  const selectedFacility = selectedIndex === null ? null : (FACILITIES[selectedIndex] ?? null);
+  const selectedFacility = selectedIndex === null ? null : (facilities[selectedIndex] ?? null);
 
   return (
     <>
@@ -312,6 +377,7 @@ export default function FacilitiesPage() {
           aria-labelledby="hero-heading"
           className="relative flex min-h-75 items-center justify-center overflow-hidden bg-gradient-to-br from-blue-800 to-red-600 px-4 lg:min-h-125"
         >
+          <HeroBackground image={pageImages.hero} />
           <Flower className="absolute left-[7%] top-[20%] w-14 text-white opacity-20 lg:w-24" />
           <Cloud className="absolute bottom-[14%] right-[8%] w-28 text-white opacity-20 lg:w-44" />
           <Cloud className="absolute left-[12%] bottom-[18%] w-20 text-white opacity-20 lg:w-32" />
@@ -361,6 +427,40 @@ export default function FacilitiesPage() {
         </section>
 
         {/* ---------------------------------------------------------------- */}
+        {/* 2b. Feature photographs                                          */}
+        {/*                                                                   */}
+        {/* Set in admin -> Pages -> Facilities -> Images. The whole section  */}
+        {/* is skipped while every slot is empty, so nothing reserves space   */}
+        {/* on a page that has no photographs yet.                           */}
+        {/* ---------------------------------------------------------------- */}
+        {featureImages.length > 0 && (
+          <section aria-label="Photographs of our facilities" className="bg-white pb-16 md:pb-24">
+            <div className="mx-auto max-w-6xl px-4 md:px-6">
+              <div
+                className={`grid gap-6 ${
+                  featureImages.length === 1
+                    ? 'grid-cols-1'
+                    : featureImages.length === 2
+                      ? 'grid-cols-1 sm:grid-cols-2'
+                      : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+                }`}
+              >
+                {featureImages.map((image) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={image.id}
+                    src={image.url}
+                    alt={image.alt_text || ''}
+                    loading="lazy"
+                    className="aspect-4/3 w-full rounded-lg object-cover shadow-md"
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ---------------------------------------------------------------- */}
         {/* 3. Facilities grid                                               */}
         {/* ---------------------------------------------------------------- */}
         <section aria-labelledby="facilities-heading" className="bg-gray-100 py-20 md:py-32">
@@ -377,7 +477,7 @@ export default function FacilitiesPage() {
             </p>
 
             <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:gap-10 lg:grid-cols-3">
-              {FACILITIES.map((facility, index) => (
+              {facilities.map((facility, index) => (
                 <FacilityCard
                   key={facility.id}
                   emoji={facility.emoji}
@@ -425,11 +525,21 @@ export default function FacilitiesPage() {
         {/* ---------------------------------------------------------------- */}
         <section aria-labelledby="outdoor-heading" className="bg-white py-16 md:py-24">
           <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-8 px-4 md:px-6 lg:grid-cols-2 lg:gap-12 lg:px-8">
-            <div
-              className="aspect-3/2 w-full rounded-lg bg-gradient-to-br from-green-100 to-emerald-200"
-              role="img"
-              aria-label="Outdoor play areas"
-            />
+            {pageImages.feature_1 ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={pageImages.feature_1.url}
+                alt={pageImages.feature_1.alt_text || 'Outdoor play areas'}
+                loading="lazy"
+                className="aspect-3/2 w-full rounded-lg object-cover shadow-md"
+              />
+            ) : (
+              <div
+                className="aspect-3/2 w-full rounded-lg bg-gradient-to-br from-green-100 to-emerald-200"
+                role="img"
+                aria-label="Outdoor play areas"
+              />
+            )}
 
             <div>
               <h2
@@ -471,11 +581,21 @@ export default function FacilitiesPage() {
         <section aria-labelledby="technology-heading" className="bg-gray-50 py-16 md:py-24">
           <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-8 px-4 md:px-6 lg:grid-cols-2 lg:gap-12 lg:px-8">
             <div className="lg:order-2">
-              <div
-                className="aspect-3/2 w-full rounded-lg bg-gradient-to-br from-blue-100 to-purple-100"
-                role="img"
-                aria-label="Technology-enhanced learning"
-              />
+              {pageImages.feature_2 ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={pageImages.feature_2.url}
+                  alt={pageImages.feature_2.alt_text || 'Technology-enhanced learning'}
+                  loading="lazy"
+                  className="aspect-3/2 w-full rounded-lg object-cover shadow-md"
+                />
+              ) : (
+                <div
+                  className="aspect-3/2 w-full rounded-lg bg-gradient-to-br from-blue-100 to-purple-100"
+                  role="img"
+                  aria-label="Technology-enhanced learning"
+                />
+              )}
             </div>
 
             <div className="lg:order-1">
@@ -536,6 +656,18 @@ export default function FacilitiesPage() {
             </div>
           </div>
         </section>
+        {/* feature_1 and feature_2 sit in the sections above; this catches the
+            third so no uploaded image is left with nowhere to appear. */}
+        <PageFeatureImages
+          images={pageImages}
+          slots={['feature_3']}
+          className="bg-white py-16 md:py-24"
+        />
+
+        {/* Text written in admin -> Pages -> Text. Renders nothing until a
+            section has content, so the copy above is untouched by default. */}
+        <PageSections pageSlug="facilities" />
+
       </main>
 
       <Footer />
@@ -550,7 +682,7 @@ export default function FacilitiesPage() {
         onPrevious={goToPrevious}
         onNext={goToNext}
         currentIndex={selectedIndex === null ? undefined : selectedIndex + 1}
-        total={FACILITIES.length}
+        total={facilities.length}
       />
     </>
   );

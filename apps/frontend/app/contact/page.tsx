@@ -2,10 +2,14 @@
 
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { PageSections } from '@/components/PageSections';
+import { PageFeatureImages } from '@/components/PageFeatureImages';
 import { Accordion, type AccordionEntry } from '@/components/Accordion';
 import { ContactForm } from '@/components/ContactForm';
 import { InfoCard } from '@/components/InfoCard';
 import { Butterfly, Flower } from '@/components/Decorations';
+import { HeroBackground } from '@/components/HeroBackground';
+import { usePageMedia } from '@/lib/media';
 
 /* -------------------------------------------------------------------------- */
 /* Data                                                                        */
@@ -117,6 +121,9 @@ const MAP_QUERY = 'Khalifa+City+A+Abu+Dhabi';
 /* -------------------------------------------------------------------------- */
 
 export default function ContactPage() {
+  // Hero image uploaded via admin → Media Library → Pages. Absent until one is
+  // set, in which case the hero keeps its gradient.
+  const pageImages = usePageMedia('contact');
   return (
     <>
       <Header />
@@ -129,6 +136,7 @@ export default function ContactPage() {
           aria-labelledby="hero-heading"
           className="relative flex min-h-62.5 items-center justify-center overflow-hidden bg-gradient-to-br from-red-600 to-amber-500 px-4 lg:min-h-100"
         >
+          <HeroBackground image={pageImages.hero} />
           <Butterfly className="absolute left-[8%] top-[20%] w-14 text-white opacity-20 lg:w-20" />
           <Flower className="absolute right-[10%] bottom-[22%] w-12 text-white opacity-20 lg:w-20" />
 
@@ -272,6 +280,12 @@ export default function ContactPage() {
             <Accordion items={FAQS} />
           </div>
         </section>
+        {/* Text written in admin -> Pages -> Text. Renders nothing until a
+            section has content, so the copy above is untouched by default. */}
+        <PageFeatureImages images={pageImages} className="bg-white py-16 md:py-24" />
+
+        <PageSections pageSlug="contact" />
+
       </main>
 
       <Footer />
