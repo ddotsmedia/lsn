@@ -2,11 +2,13 @@ import express from 'express';
 import type { Pool } from 'pg';
 import type { Response } from 'express';
 import type { AuthRequest } from '../middleware/auth.js';
+import { authenticate, createResolveAdmin, requireAdmin } from '../middleware/auth.js';
 
 export function createPageContentRouter(db: Pool): express.Router {
   const router = express.Router();
+  const resolveAdmin = createResolveAdmin(db);
 
-  // GET page content
+  // GET page content (public - no auth required for reads)
   router.get('/pages/:pageSlug/content', async (req: AuthRequest, res: Response) => {
     try {
       const { pageSlug } = req.params;
@@ -39,8 +41,8 @@ export function createPageContentRouter(db: Pool): express.Router {
     }
   });
 
-  // UPDATE content (admin only)
-  router.put('/pages/:pageSlug/content/:sectionKey', async (req: AuthRequest, res: Response) => {
+  // UPDATE content (admin only - requires auth)
+  router.put('/pages/:pageSlug/content/:sectionKey', authenticate, resolveAdmin, requireAdmin, async (req: AuthRequest, res: Response) => {
     try {
       const { pageSlug, sectionKey } = req.params;
       const { content_value } = req.body;

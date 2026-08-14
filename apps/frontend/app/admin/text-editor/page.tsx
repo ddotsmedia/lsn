@@ -1,9 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { usePageContent } from '../../../hooks/usePageContent';
+import { useAuth } from '../../../lib/auth-context';
 
 export default function TextEditorPage() {
+  const router = useRouter();
+  const { isAuthenticated, loading: authLoading, logout } = useAuth();
+
   const pages = ['home', 'about', 'facilities', 'contact'];
   const [selectedPage, setSelectedPage] = useState('home');
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -11,6 +16,17 @@ export default function TextEditorPage() {
   const [saveStatus, setSaveStatus] = useState('');
 
   const { content, loading, error, updateContent } = usePageContent(selectedPage);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/admin/login');
+    }
+  }, [isAuthenticated, authLoading, router]);
+
+  if (authLoading || !isAuthenticated) {
+    return null;
+  }
 
   const handleSave = async (sectionKey: string) => {
     setSaveStatus('Saving...');
@@ -28,7 +44,18 @@ export default function TextEditorPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-900">Content Editor</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Content Editor</h1>
+          <button
+            onClick={() => {
+              logout();
+              router.push('/admin/login');
+            }}
+            className="px-3 sm:px-4 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors font-medium"
+          >
+            Logout
+          </button>
+        </div>
 
         {/* Page Tabs */}
         <div className="flex gap-2 mb-6 border-b overflow-x-auto">

@@ -54,9 +54,13 @@ export function usePageContent(pageSlug: string) {
   const updateContent = async (sectionKey: string, value: string): Promise<boolean> => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3011/api/v1';
+      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
       const response = await fetch(`${apiUrl}/pages/${pageSlug}/content/${sectionKey}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
         body: JSON.stringify({ content_value: value })
       });
 
