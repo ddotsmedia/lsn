@@ -68,7 +68,7 @@ app.use('/api/v1/chatbot', createChatbotRouter(db));
 app.use('/api/v1/videos', createVideoUploadRouter(db));
 app.use('/api/v1/age-groups', createAgeGroupsRouter(db));
 app.use('/api/v1/media', createMediaRouter(db));
-app.use('/api/v1/pages', createPagesRouter(db));
+app.use('/api/v1', createPagesRouter(db));
 app.use('/api/v1', createPublicContentRouter(db));
 app.use('/api/v1/admin', createAdminRouter(db));
 app.use('/api/v1', createPageContentRouter(db));

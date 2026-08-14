@@ -1,84 +1,141 @@
 import express from 'express';
-import type { Response } from 'express';
 import type { Pool } from 'pg';
-import type { AuthRequest } from '../middleware/auth.js';
-import { listPublicSections } from '../controllers/pageContentController.js';
+import type { Request, Response } from 'express';
 
-/**
- * Public page endpoints, including the images assigned to a page's slots.
- *
- * page_media keys on a slug derived from the page's `path`, not on a page_id:
- * pages.slug says "about" where the route is /nursery, and "news-events" where
- * the route is /events, so the site's own hooks fetch by route name. Resolving
- * through `path` here keeps this endpoint agreeing with them. The lookup also
- * accepts the pages.slug spelling, so both "about" and "nursery" work.
- */
-
-/** '/'-rooted path to the slug page_media stores. '/' becomes 'home'. */
-function mediaSlugFromPath(path: string | null, fallback: string): string {
-  if (!path) return fallback;
-  const trimmed = path.replace(/^\/+|\/+$/g, '');
-  return trimmed === '' ? 'home' : trimmed;
-}
-
-async function getPageMedia(db: Pool, req: AuthRequest, res: Response): Promise<void> {
-  try {
-    const { slug } = req.params;
-
-    const page = await db.query(
-      `SELECT id, title, slug, path FROM pages
-        WHERE deleted_at IS NULL AND (slug = $1 OR path = '/' || $1)
-        LIMIT 1`,
-      [slug]
-    );
-    const row = page.rows[0] as { id: string; title: string; slug: string; path: string | null } | undefined;
-
-    // A page with no row is not an error: several routes have image slots but
-    // no pages entry, and the slug is a valid key for page_media regardless.
-    const mediaSlug = row ? mediaSlugFromPath(row.path, row.slug) : (slug as string);
-
-    const result = await db.query(
-      `SELECT m.id, m.url, m.alt_text, m.width, m.height,
-              pm.media_section AS slot_name, pm.sort_order
-         FROM media m
-         JOIN page_media pm ON m.id = pm.media_id
-        WHERE pm.page_slug = $1
-          AND m.deleted_at IS NULL
-          AND pm.deleted_at IS NULL
-        ORDER BY pm.media_section ASC, pm.sort_order ASC`,
-      [mediaSlug]
-    );
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching page media:', error);
-    res.status(500).json({ error: 'Failed to fetch page media' });
-  }
-}
-
-/** Published pages, for a nav or sitemap. */
-async function listPages(db: Pool, _req: AuthRequest, res: Response): Promise<void> {
-  try {
-    const result = await db.query(
-      `SELECT id, title, slug, path, description
-         FROM pages
-        WHERE deleted_at IS NULL AND status = 'published'
-        ORDER BY sort_order ASC`
-    );
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching pages:', error);
-    res.status(500).json({ error: 'Failed to fetch pages' });
-  }
-}
-
-export function createPagesRouter(db: Pool): express.Router {
+export const createPagesRouter = (db: Pool) => {
   const router = express.Router();
-  router.get('/', (req, res) => listPages(db, req as AuthRequest, res));
-  router.get('/:slug/media', (req, res) => getPageMedia(db, req as AuthRequest, res));
-  // Visible sections that have content. Read-only; edits go through /admin.
-  router.get('/:pageId/content', (req, res) => listPublicSections(db, req as AuthRequest, res));
+
+  // Get all pages
+  router.get('/pages', async (req: Request, res: Response) => {
+    try {
+      const result = await db.query(
+        'SELECT id, slug, title, description FROM pages WHERE deleted_at IS NULL ORDER BY sort_order'
+      );
+      res.json({ status: 'ok', data: result.rows });
+    } catch (error) {
+      console.error('Failed to fetch pages:', error);
+      res.status(500).json({ error: 'Failed to fetch pages' });
+    }
+  });
+
+  // Get page with sections
+  router.get('/pages/:pageSlug', async (req: Request, res: Response) => {
+    try {
+      const { pageSlug } = req.params;
+
+      const pageResult = await db.query(
+        'SELECT id, slug, title, description FROM pages WHERE slug = $1 AND deleted_at IS NULL',
+        [pageSlug]
+      );
+
+      if (pageResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Page not found' });
+      }
+
+      const sectionsResult = await db.query(
+        'SELECT id, page_id, section_key, section_title, content_text, image_url, section_order FROM page_sections WHERE page_id = $1 ORDER BY section_order',
+        [pageResult.rows[0].id]
+      );
+
+      res.json({
+        status: 'ok',
+        page: pageResult.rows[0],
+        sections: sectionsResult.rows
+      });
+    } catch (error) {
+      console.error('Failed to fetch page:', error);
+      res.status(500).json({ error: 'Failed to fetch page' });
+    }
+  });
+
+  // Update page metadata
+  router.put('/pages/:pageSlug', async (req: Request, res: Response) => {
+    try {
+      const { pageSlug } = req.params;
+      const { title, description } = req.body;
+
+      const result = await db.query(
+        'UPDATE pages SET title = $1, description = $2, updated_at = CURRENT_TIMESTAMP WHERE slug = $3 AND deleted_at IS NULL RETURNING id, slug, title, description',
+        [title, description, pageSlug]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Page not found' });
+      }
+
+      res.json({ status: 'ok', data: result.rows[0] });
+    } catch (error) {
+      console.error('Failed to update page:', error);
+      res.status(500).json({ error: 'Failed to update page' });
+    }
+  });
+
+  // Update section
+  router.put('/pages/:pageSlug/sections/:sectionKey', async (req: Request, res: Response) => {
+    try {
+      const { pageSlug, sectionKey } = req.params;
+      const { section_title, content_text, image_url } = req.body;
+
+      const pageResult = await db.query(
+        'SELECT id FROM pages WHERE slug = $1',
+        [pageSlug]
+      );
+
+      if (pageResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Page not found' });
+      }
+
+      const result = await db.query(
+        'UPDATE page_sections SET section_title = $1, content_text = $2, image_url = $3, updated_at = CURRENT_TIMESTAMP WHERE page_id = $4 AND section_key = $5 RETURNING *',
+        [section_title, content_text, image_url, pageResult.rows[0].id, sectionKey]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Section not found' });
+      }
+
+      res.json({ status: 'ok', data: result.rows[0] });
+    } catch (error) {
+      console.error('Failed to update section:', error);
+      res.status(500).json({ error: 'Failed to update section' });
+    }
+  });
+
+  // Create new section
+  router.post('/pages/:pageSlug/sections', async (req: Request, res: Response) => {
+    try {
+      const { pageSlug } = req.params;
+      const { section_key, section_title, content_text, image_url } = req.body;
+
+      const pageResult = await db.query(
+        'SELECT id FROM pages WHERE slug = $1',
+        [pageSlug]
+      );
+
+      if (pageResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Page not found' });
+      }
+
+      const orderResult = await db.query(
+        'SELECT COALESCE(MAX(section_order), 0) + 1 as next_order FROM page_sections WHERE page_id = $1',
+        [pageResult.rows[0].id]
+      );
+
+      const nextOrder = (orderResult.rows[0] as { next_order: number }).next_order;
+
+      const result = await db.query(
+        'INSERT INTO page_sections (page_id, section_key, section_title, content_text, image_url, section_order) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        [pageResult.rows[0].id, section_key, section_title, content_text, image_url, nextOrder]
+      );
+
+      res.json({ status: 'ok', data: result.rows[0] });
+    } catch (error) {
+      console.error('Failed to create section:', error);
+      res.status(500).json({ error: 'Failed to create section' });
+    }
+  });
+
   return router;
-}
+};
 
 export default createPagesRouter;
