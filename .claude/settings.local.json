@@ -38,7 +38,12 @@
       "Bash(tar czf *)",
       "Bash(node *)",
       "Bash(grep -E \"^\\\\$2\")",
-      "Bash(npm init *)"
+      "Bash(npm init *)",
+      "Bash(chmod +x C:/web/lsn/deploy-phase1.sh)",
+      "Artifact",
+      "Bash(chmod +x C:/web/lsn/fix-phase1-deployment.sh)",
+      "Bash(chmod +x deploy-production.sh)",
+      "Bash(npm list *)"
     ]
   }
 }
