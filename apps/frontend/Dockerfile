@@ -24,11 +24,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-# Copy standalone output - note the nested structure
+# Copy standalone output - monorepo structure at root level
+# .next/standalone contains: server.js, node_modules, package.json (shared)
+# .next/standalone/apps/frontend/.next contains: app-specific .next
+COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/standalone/apps/frontend/.next ./.next
-COPY --from=build /app/.next/standalone/apps/frontend/server.js ./server.js
-COPY --from=build /app/.next/standalone/apps/frontend/package.json ./package.json
-COPY --from=build /app/.next/standalone/apps/frontend/node_modules ./node_modules
 COPY --from=build /app/public ./public
 
 USER node
