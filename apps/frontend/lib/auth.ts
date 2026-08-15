@@ -57,6 +57,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
 
+  secret: process.env.NEXTAUTH_SECRET,
+
   pages: {
     signIn: "/auth/login",
     error: "/auth/error",
@@ -66,11 +68,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     strategy: "jwt",
     maxAge: 24 * 60 * 60, // 24 hours
     updateAge: 60 * 60, // 1 hour
-  },
-
-  jwt: {
-    maxAge: 24 * 60 * 60,
-    secret: process.env.NEXTAUTH_SECRET,
   },
 
   callbacks: {
@@ -92,7 +89,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.id as string
         session.user.email = token.email as string
         session.user.role = token.role as string
-        session.user.image = token.picture
+        session.user.image = (token.picture as string | null | undefined) || undefined
       }
       session.accessToken = token.accessToken as string
       session.refreshToken = token.refreshToken as string
@@ -110,16 +107,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 
   events: {
-    async signIn({ user, account, isNewUser }) {
-      console.log("User signed in:", user.email)
+    async signIn(message) {
+      console.log("User signed in:", message.user?.email)
     },
 
-    async signOut({ token }) {
-      console.log("User signed out:", token?.email)
-    },
-
-    async error({ error }) {
-      console.error("Auth error:", error)
+    async signOut(message) {
+      console.log("User signed out")
     },
   },
 
@@ -146,17 +139,5 @@ declare module "next-auth" {
     accessToken: string
     refreshToken: string
     requiresMFA: boolean
-  }
-}
-
-declare module "next-auth/jwt" {
-  interface JWT {
-    id: string
-    email: string
-    role: string
-    accessToken: string
-    refreshToken: string
-    requiresMFA: boolean
-    sessionId?: string
   }
 }

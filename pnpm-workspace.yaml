@@ -1,0 +1,10 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+allowBuilds:
+  '@prisma/client': false
+  '@scarf/scarf': false
+  bcrypt: false
+  esbuild: false
+  msgpackr-extract: false
+  sharp: false
