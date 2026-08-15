@@ -6,13 +6,10 @@ services:
     container_name: lsn-postgres
     environment:
       POSTGRES_USER: lsn
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      POSTGRES_PASSWORD: littlesmarties_secure_password
       POSTGRES_DB: littlesmarties
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      - "127.0.0.1:5437:5432"
-    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U lsn"]
       interval: 10s
@@ -20,59 +17,43 @@ services:
       retries: 5
 
   backend:
+    image: littlesmarties-backend:latest
+    container_name: lsn-backend
     build:
       context: ./apps/backend
-      dockerfile: Dockerfile.prod
-    container_name: lsn-backend
+      dockerfile: Dockerfile
+    ports:
+      - "0.0.0.0:3011:3011"
+    environment:
+      DATABASE_URL: postgresql://lsn:littlesmarties_secure_password@postgres:5432/littlesmarties
+      NODE_ENV: production
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
-      NODE_ENV: production
-      PORT: 3011
-      DATABASE_URL: postgresql://lsn:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@postgres:5432/littlesmarties
-      UPLOAD_DIR: ./uploads/gallery
-    volumes:
-      - backend_uploads:/app/uploads
-    ports:
-      - "127.0.0.1:3011:3011"
-    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3011/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      test: ["CMD", "curl", "-f", "http://localhost:3011/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   frontend:
+    image: littlesmarties-frontend:latest
+    container_name: lsn-frontend
     build:
       context: ./apps/frontend
-      dockerfile: Dockerfile.prod
-      args:
-        # Baked into the client bundle at build time, so it must be the URL a
-        # visitor's browser can reach — not a container-local address. nginx
-        # proxies https://bayrotna.ae/api/v1/ to this backend, so the API is
-        # same-origin and no CORS entry is needed. lib/api.ts expects this value
-        # to already include /api/v1 and appends only the resource path.
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://bayrotna.ae/api/v1}
-    container_name: lsn-frontend
-    depends_on:
-      - backend
+      dockerfile: Dockerfile
+    ports:
+      - "0.0.0.0:3000:3000"
     environment:
       NODE_ENV: production
-      PORT: 3000
-    ports:
-      - "127.0.0.1:3083:3000"
-    restart: unless-stopped
+    depends_on:
+      - backend
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   pgdata:
-    driver: local
   backend_uploads:
-    driver: local
