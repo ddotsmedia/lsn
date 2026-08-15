@@ -240,7 +240,7 @@ router.post('/setup-mfa', (req: AuthRequest, res: Response) => {
     })
 
     // QR code URL for scanning
-    const qrCode = secret.qr_code_url
+    const qrCode = secret.otpauth_url
 
     res.json({
       secret: secret.base32,
