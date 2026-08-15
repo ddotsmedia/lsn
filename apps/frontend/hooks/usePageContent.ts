@@ -20,7 +20,7 @@ export function usePageContent(pageSlug: string) {
       try {
         setLoading(true);
         setError(null);
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
         const response = await fetch(`${apiUrl}/api/v1/pages/${pageSlug}/content`);
 
         if (!response.ok) {
@@ -53,7 +53,7 @@ export function usePageContent(pageSlug: string) {
 
   const updateContent = async (sectionKey: string, value: string): Promise<boolean> => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
       const token = typeof window !== 'undefined' ? localStorage.getItem('lsn_token') : null;
       const response = await fetch(`${apiUrl}/api/v1/pages/${pageSlug}/content/${sectionKey}`, {
         method: 'PUT',

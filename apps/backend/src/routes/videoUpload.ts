@@ -6,9 +6,9 @@ import type { AuthRequest } from '../middleware/auth.js';
 import {
   uploadToCloudinary,
   saveVideoMetadata,
-  getUploadedVideos,
-  deleteVideo,
-  restoreVideo,
+//   getUploadedVideos,
+//   deleteVideo,
+//   restoreVideo,
 } from '../controllers/videoUploadController.js';
 
 /**

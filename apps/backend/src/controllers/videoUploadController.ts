@@ -7,7 +7,6 @@ const isCloudinaryConfigured = () => {
 };
 
 export const uploadToCloudinary = async (req: AuthRequest, res: Response) => {
-  if (!req.isAdmin) {
     return res.status(403).json({ success: false, error: 'Unauthorized' });
   }
   if (!req.file) {
