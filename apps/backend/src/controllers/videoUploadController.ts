@@ -1,6 +1,6 @@
 import type { AuthRequest } from '../middleware/auth.js';
 import { Response } from 'express';
-import cloudinary from 'cloudinary';
+import { v2 as cloudinary } from 'cloudinary';
 
 const isCloudinaryConfigured = () => {
   return process.env.CLOUDINARY_URL;

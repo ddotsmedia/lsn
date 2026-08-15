@@ -150,3 +150,26 @@ export const rateLimitByUser = (
     next()
   }
 }
+
+export const createResolveAdmin = (db: Pool) => {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (!req.user?.userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+      const result = await db.query(
+        'SELECT role FROM users WHERE id = $1',
+        [req.user.userId]
+      );
+
+      if (result.rows[0]?.role !== 'ADMIN') {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      next();
+    } catch {
+      return res.status(500).json({ error: 'Failed to verify administrator access' });
+    }
+  };
+};
