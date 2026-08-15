@@ -15,18 +15,21 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   backend:
     image: littlesmarties-backend:latest
     container_name: lsn-backend
     build:
       context: ./apps/backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod
     ports:
       - "0.0.0.0:3011:3011"
     environment:
       DATABASE_URL: postgresql://lsn:littlesmarties_secure_password@postgres:5432/littlesmarties
       NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET:-your-jwt-secret-key}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-nextauth-secret}
     depends_on:
       postgres:
         condition: service_healthy
@@ -35,6 +38,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   frontend:
     image: littlesmarties-frontend:latest
@@ -42,10 +46,13 @@ services:
     build:
       context: ./apps/frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://backend:3011
     ports:
       - "0.0.0.0:3000:3000"
     environment:
       NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://backend:3011
     depends_on:
       - backend
     healthcheck:
@@ -53,7 +60,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
 volumes:
   pgdata:
   backend_uploads:
+
+networks:
+  default:
+    name: littlesmarties-network
