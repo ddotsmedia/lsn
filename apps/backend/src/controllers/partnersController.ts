@@ -148,7 +148,7 @@ export async function createPartner(db: Pool, req: AuthRequest, res: Response): 
       ]
     );
 
-    await logActivity(db, req.userId, 'create', 'partner', result.rows[0]?.id as string, {
+    await logActivity(db, req.user?.userId, 'create', 'partner', result.rows[0]?.id as string, {
       newValues: result.rows[0] as Record<string, unknown>, req,
     });
     res.status(201).json(result.rows[0]);
@@ -206,7 +206,7 @@ export async function updatePartner(db: Pool, req: AuthRequest, res: Response): 
       params
     );
 
-    await logActivity(db, req.userId, 'update', 'partner', id as string, {
+    await logActivity(db, req.user?.userId, 'update', 'partner', id as string, {
       oldValues: before.rows[0] as Record<string, unknown>,
       newValues: result.rows[0] as Record<string, unknown>,
       req,
@@ -235,7 +235,7 @@ export async function deletePartner(db: Pool, req: AuthRequest, res: Response): 
     if (result.rows.length === 0) { res.status(404).json({ error: 'Partner not found' }); return; }
 
     const row = result.rows[0] as { cloudinary_id?: string };
-    await logActivity(db, req.userId, 'delete', 'partner', id as string, {
+    await logActivity(db, req.user?.userId, 'delete', 'partner', id as string, {
       oldValues: result.rows[0] as Record<string, unknown>, req,
     });
     await destroyLogo(row.cloudinary_id);
@@ -255,7 +255,7 @@ export async function restorePartner(db: Pool, req: AuthRequest, res: Response):
       [req.params.id]
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'No deleted partner with that id' }); return; }
-    await logActivity(db, req.userId, 'restore', 'partner', req.params.id as string, {
+    await logActivity(db, req.user?.userId, 'restore', 'partner', req.params.id as string, {
       newValues: result.rows[0] as Record<string, unknown>, req,
     });
     res.json(result.rows[0]);

@@ -157,7 +157,7 @@ export async function createFacility(db: Pool, req: AuthRequest, res: Response):
     await replaceFeatures(client, facility.id, 'amenity', data.amenities ?? []);
     await client.query('COMMIT');
 
-    await logActivity(db, req.userId, 'create', 'facility', facility.id, {
+    await logActivity(db, req.user?.userId, 'create', 'facility', facility.id, {
       newValues: result.rows[0] as Record<string, unknown>, req,
     });
     const [row] = await decorate(db, result.rows as Record<string, unknown>[]);
@@ -228,7 +228,7 @@ export async function updateFacility(db: Pool, req: AuthRequest, res: Response):
     if (data.amenities !== undefined) await replaceFeatures(client, id as string, 'amenity', data.amenities);
 
     await client.query('COMMIT');
-    await logActivity(db, req.userId, 'update', 'facility', id as string, { newValues: row, req });
+    await logActivity(db, req.user?.userId, 'update', 'facility', id as string, { newValues: row, req });
     const [decorated] = await decorate(db, [row]);
     res.json(decorated);
   } catch (error) {
@@ -255,7 +255,7 @@ export async function deleteFacility(db: Pool, req: AuthRequest, res: Response):
       [id]
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Facility not found' }); return; }
-    await logActivity(db, req.userId, 'delete', 'facility', id as string, {
+    await logActivity(db, req.user?.userId, 'delete', 'facility', id as string, {
       oldValues: result.rows[0] as Record<string, unknown>, req,
     });
     res.status(204).send();
@@ -273,7 +273,7 @@ export async function restoreFacility(db: Pool, req: AuthRequest, res: Response)
       [req.params.id]
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'No deleted facility with that id' }); return; }
-    await logActivity(db, req.userId, 'restore', 'facility', req.params.id as string, {
+    await logActivity(db, req.user?.userId, 'restore', 'facility', req.params.id as string, {
       newValues: result.rows[0] as Record<string, unknown>, req,
     });
     res.json(result.rows[0]);
@@ -356,7 +356,7 @@ export async function uploadFacilityImage(db: Pool, req: AuthRequest, res: Respo
       [
         facilityName, url, uploaded.asset_id ?? null, uploaded.public_id,
         uploaded.bytes ?? req.file.size ?? null, req.file.mimetype,
-        uploaded.width ?? null, uploaded.height ?? null, alt, req.userId ?? null,
+        uploaded.width ?? null, uploaded.height ?? null, alt, req.user?.userId ?? null,
       ]
     );
     const mediaId = (media.rows[0] as { id: string }).id;
@@ -375,7 +375,7 @@ export async function uploadFacilityImage(db: Pool, req: AuthRequest, res: Respo
       [id, mediaId, isFirst, (next.rows[0] as { next: number }).next]
     );
 
-    await logActivity(db, req.userId, 'upload', 'facility_image', assignment.rows[0]?.id as string, {
+    await logActivity(db, req.user?.userId, 'upload', 'facility_image', assignment.rows[0]?.id as string, {
       newValues: { facility_id: id, media_id: mediaId }, req,
     });
 
@@ -415,7 +415,7 @@ export async function deleteFacilityImage(db: Pool, req: AuthRequest, res: Respo
       );
     }
 
-    await logActivity(db, req.userId, 'delete', 'facility_image', req.params.imageId as string, {
+    await logActivity(db, req.user?.userId, 'delete', 'facility_image', req.params.imageId as string, {
       oldValues: result.rows[0] as Record<string, unknown>, req,
     });
     res.status(204).send();

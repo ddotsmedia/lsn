@@ -1,40 +1,20 @@
-# syntax=docker/dockerfile:1
-# ---- deps ------------------------------------------------------------------
-FROM node:20-alpine AS deps
+FROM node:20-alpine AS build
+
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
-
-# ---- build -----------------------------------------------------------------
-FROM node:20-alpine AS build
-WORKDIR /app
-ARG NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-ENV NEXT_TELEMETRY_DISABLED=1
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Never build on top of a stale cache - CRITICAL FOR NEXT.JS
-RUN rm -rf .next && npm run build
 
-# ---- runner (next standalone output) ---------------------------------------
+RUN npm ci
+RUN npm run build --workspace=apps/frontend
+
 FROM node:20-alpine AS runner
+
 WORKDIR /app
 ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-# Copy standalone output - monorepo structure at root level
-# .next/standalone contains: server.js, node_modules, package.json (shared)
-# .next/standalone/apps/frontend/.next contains: app-specific .next
-COPY --from=build /app/.next/standalone ./
-COPY --from=build /app/.next/standalone/apps/frontend/.next ./.next
-COPY --from=build /app/public ./public
+COPY --from=build /app/apps/frontend/.next/standalone ./
+COPY --from=build /app/apps/frontend/public ./apps/frontend/public
 
-USER node
-EXPOSE 3000
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-
-CMD ["node", "server.js"]
+CMD ["node", "apps/frontend/server.js"]

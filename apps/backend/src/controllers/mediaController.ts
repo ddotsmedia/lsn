@@ -94,12 +94,12 @@ export async function uploadMedia(db: Pool, req: AuthRequest, res: Response): Pr
         result.asset_id ?? null, result.public_id,
         result.bytes ?? file.size ?? null, file.mimetype,
         result.width ?? null, result.height ?? null,
-        altText, category, req.userId ?? null,
+        altText, category, req.user?.userId ?? null,
       ]
     );
 
     const row = inserted.rows[0] as Record<string, unknown>;
-    await logActivity(db, req.userId, 'upload', 'media', row.id as string, {
+    await logActivity(db, req.user?.userId, 'upload', 'media', row.id as string, {
       newValues: { title, category, public_id: result.public_id },
       req,
     });
@@ -179,7 +179,7 @@ export async function updateMedia(db: Pool, req: AuthRequest, res: Response): Pr
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Media not found' }); return; }
 
-    await logActivity(db, req.userId, 'update', 'media', req.params.id as string, { details: data, req });
+    await logActivity(db, req.user?.userId, 'update', 'media', req.params.id as string, { details: data, req });
     res.json(result.rows[0]);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -218,7 +218,7 @@ async function removeOne(db: Pool, req: AuthRequest, id: string): Promise<boolea
     db.query(`DELETE FROM site_media WHERE media_id = $1`, [id]),
   ]);
 
-  await logActivity(db, req.userId, 'delete', 'media', id, { oldValues: result.rows[0] as Record<string, unknown>, req });
+  await logActivity(db, req.user?.userId, 'delete', 'media', id, { oldValues: result.rows[0] as Record<string, unknown>, req });
 
   if (row.cloudinary_public_id) {
     try {
@@ -299,7 +299,7 @@ export async function assignAgeGroupMedia(db: Pool, req: AuthRequest, res: Respo
       [slug, media_id, image_type, (next.rows[0] as { next: number }).next]
     );
 
-    await logActivity(db, req.userId, 'update', 'age_group_image', result.rows[0]?.id as string, {
+    await logActivity(db, req.user?.userId, 'update', 'age_group_image', result.rows[0]?.id as string, {
       newValues: { slug, image_type, media_id }, req,
     });
     res.status(201).json(result.rows[0]);
@@ -359,7 +359,7 @@ export async function assignPageMedia(db: Pool, req: AuthRequest, res: Response)
       [slug, media_id, media_section]
     );
 
-    await logActivity(db, req.userId, 'update', 'page_media', result.rows[0]?.id as string, {
+    await logActivity(db, req.user?.userId, 'update', 'page_media', result.rows[0]?.id as string, {
       newValues: { slug, media_section, media_id }, req,
     });
     res.status(201).json(result.rows[0]);
@@ -411,7 +411,7 @@ export async function assignSiteMedia(db: Pool, req: AuthRequest, res: Response)
        RETURNING *`,
       [media_key, media_id]
     );
-    await logActivity(db, req.userId, 'update', 'site_media', media_key, {
+    await logActivity(db, req.user?.userId, 'update', 'site_media', media_key, {
       newValues: { media_key, media_id }, req,
     });
     res.json(result.rows[0]);

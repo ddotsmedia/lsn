@@ -56,10 +56,10 @@ export async function uploadEventImage(db: Pool, req: AuthRequest, res: Response
     const result = await db.query(
       `UPDATE news_events SET image_url = $1, cloudinary_id = $2, uploaded_by = $3
         WHERE id = $4 AND deleted_at IS NULL RETURNING *`,
-      [url, uploaded.public_id, req.userId ?? null, id]
+      [url, uploaded.public_id, req.user?.userId ?? null, id]
     );
 
-    await logActivity(db, req.userId, 'upload', 'news_event', id as string, {
+    await logActivity(db, req.user?.userId, 'upload', 'news_event', id as string, {
       details: { action: 'image_uploaded', cloudinary_id: uploaded.public_id }, req,
     });
     res.json({ success: true, event: result.rows[0], imageUrl: url });
@@ -83,7 +83,7 @@ export async function deleteEventImage(db: Pool, req: AuthRequest, res: Response
     const result = await db.query(
       `UPDATE news_events SET image_url = NULL, cloudinary_id = NULL, uploaded_by = $1
         WHERE id = $2 RETURNING *`,
-      [req.userId ?? null, id]
+      [req.user?.userId ?? null, id]
     );
 
     if (publicId) {
@@ -94,7 +94,7 @@ export async function deleteEventImage(db: Pool, req: AuthRequest, res: Response
       }
     }
 
-    await logActivity(db, req.userId, 'delete', 'news_event', id as string, {
+    await logActivity(db, req.user?.userId, 'delete', 'news_event', id as string, {
       details: { action: 'image_removed' }, req,
     });
     res.json({ success: true, event: result.rows[0] });
@@ -123,10 +123,10 @@ export async function reorderEvents(db: Pool, req: AuthRequest, res: Response): 
           SET sort_order = v.ord + $3::int, uploaded_by = $2
          FROM (SELECT unnest($1::uuid[]) AS id, generate_subscripts($1::uuid[], 1) AS ord) AS v
         WHERE e.id = v.id AND e.deleted_at IS NULL`,
-      [ids, req.userId ?? null, start ?? 0]
+      [ids, req.user?.userId ?? null, start ?? 0]
     );
 
-    await logActivity(db, req.userId, 'update', 'news_event', ids[0] as string, {
+    await logActivity(db, req.user?.userId, 'update', 'news_event', ids[0] as string, {
       details: { action: 'reordered', count: ids.length, start: start ?? 0 }, req,
     });
     res.json({ reordered: ids.length });

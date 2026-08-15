@@ -104,7 +104,7 @@ export async function createSocialLink(db: Pool, req: AuthRequest, res: Response
     );
     const row = result.rows[0] as SocialLink;
 
-    await logActivity(db, req.userId, 'create', 'social_link', row.id, {
+    await logActivity(db, req.user?.userId, 'create', 'social_link', row.id, {
       newValues: row as unknown as Record<string, unknown>,
       req,
     });
@@ -149,7 +149,7 @@ export async function updateSocialLink(db: Pool, req: AuthRequest, res: Response
       [id, data.platform ?? null, data.url ?? null, data.display_order ?? null, data.active ?? null]
     );
 
-    await logActivity(db, req.userId, 'update', 'social_link', id, {
+    await logActivity(db, req.user?.userId, 'update', 'social_link', id, {
       oldValues: existing.rows[0] as Record<string, unknown>,
       newValues: result.rows[0] as Record<string, unknown>,
       req,
@@ -181,7 +181,7 @@ export async function deleteSocialLink(db: Pool, req: AuthRequest, res: Response
       res.status(404).json({ error: 'Social link not found' });
       return;
     }
-    await logActivity(db, req.userId, 'delete', 'social_link', id, {
+    await logActivity(db, req.user?.userId, 'delete', 'social_link', id, {
       oldValues: result.rows[0] as Record<string, unknown>,
       req,
     });
@@ -204,7 +204,7 @@ export async function restoreSocialLink(db: Pool, req: AuthRequest, res: Respons
       res.status(404).json({ error: 'No deleted social link with that id' });
       return;
     }
-    await logActivity(db, req.userId, 'restore', 'social_link', id, {
+    await logActivity(db, req.user?.userId, 'restore', 'social_link', id, {
       newValues: result.rows[0] as Record<string, unknown>,
       req,
     });

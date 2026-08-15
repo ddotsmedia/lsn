@@ -113,7 +113,7 @@ async function updateBookingStatus(db: Pool, req: AuthRequest, res: Response): P
       return;
     }
 
-    await logActivity(db, req.userId, 'status_change', 'tour_booking', id, {
+    await logActivity(db, req.user?.userId, 'status_change', 'tour_booking', id, {
       newStatus: data.status,
       notes: data.notes,
     });
@@ -137,7 +137,7 @@ async function deleteBooking(db: Pool, req: AuthRequest, res: Response): Promise
       res.status(404).json({ error: 'Booking not found' });
       return;
     }
-    await logActivity(db, req.userId, 'delete', 'tour_booking', id);
+    await logActivity(db, req.user?.userId, 'delete', 'tour_booking', id);
     res.status(204).send();
   } catch (error) {
     console.error('deleteBooking failed', error);

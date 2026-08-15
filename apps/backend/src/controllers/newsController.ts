@@ -87,10 +87,10 @@ export async function uploadNewsImage(db: Pool, req: AuthRequest, res: Response)
     const updated = await db.query(
       `UPDATE news SET image_url = $1, cloudinary_id = $2, uploaded_by = $3
         WHERE id = $4 AND deleted_at IS NULL RETURNING *`,
-      [url, uploaded.public_id, req.userId ?? null, id]
+      [url, uploaded.public_id, req.user?.userId ?? null, id]
     );
 
-    await logActivity(db, req.userId, 'upload', 'news', id as string, {
+    await logActivity(db, req.user?.userId, 'upload', 'news', id as string, {
       details: { image_url: url, cloudinary_id: uploaded.public_id },
       req,
     });
@@ -133,7 +133,7 @@ export async function deleteNewsImage(db: Pool, req: AuthRequest, res: Response)
       }
     }
 
-    await logActivity(db, req.userId, 'delete', 'news', id as string, {
+    await logActivity(db, req.user?.userId, 'delete', 'news', id as string, {
       details: { action: 'image_removed', cloudinary_id: publicId },
       req,
     });
@@ -224,7 +224,7 @@ export async function createNews(db: Pool, req: AuthRequest, res: Response): Pro
        VALUES ($1, $2, $3, $4) RETURNING *`,
       [data.title, data.description, data.published_date, data.is_published ?? true]
     );
-    await logActivity(db, req.userId, 'create', 'news', result.rows[0]?.id as string, {
+    await logActivity(db, req.user?.userId, 'create', 'news', result.rows[0]?.id as string, {
       newValues: result.rows[0] as Record<string, unknown>,
       req,
     });
@@ -269,7 +269,7 @@ export async function updateNews(db: Pool, req: AuthRequest, res: Response): Pro
       params
     );
 
-    await logActivity(db, req.userId, 'update', 'news', id, {
+    await logActivity(db, req.user?.userId, 'update', 'news', id, {
       oldValues: before.rows[0] as Record<string, unknown>,
       newValues: result.rows[0] as Record<string, unknown>,
       req,
@@ -294,7 +294,7 @@ export async function deleteNews(db: Pool, req: AuthRequest, res: Response): Pro
       [id]
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'News item not found' }); return; }
-    await logActivity(db, req.userId, 'delete', 'news', id, {
+    await logActivity(db, req.user?.userId, 'delete', 'news', id, {
       oldValues: result.rows[0] as Record<string, unknown>,
       req,
     });
@@ -317,7 +317,7 @@ export async function restoreNews(db: Pool, req: AuthRequest, res: Response): Pr
       res.status(404).json({ error: 'No deleted news item with that id' });
       return;
     }
-    await logActivity(db, req.userId, 'restore', 'news', id, {
+    await logActivity(db, req.user?.userId, 'restore', 'news', id, {
       newValues: result.rows[0] as Record<string, unknown>,
       req,
     });
