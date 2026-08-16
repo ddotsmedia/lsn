@@ -44,7 +44,8 @@
       "Bash(chmod +x C:/web/lsn/fix-phase1-deployment.sh)",
       "Bash(chmod +x deploy-production.sh)",
       "Bash(npm list *)",
-      "PowerShell(tail *)"
+      "PowerShell(tail *)",
+      "PowerShell(ls *)"
     ]
   }
 }
