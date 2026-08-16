@@ -84,7 +84,7 @@ async function createCategory(db: Pool, req: AuthRequest, res: Response): Promis
        VALUES ($1, $2, $3) RETURNING *`,
       [data.name, data.slug, data.description || null]
     );
-    await logActivity(db, req.userId, 'create', 'gallery_category', result.rows[0]?.id as string, { name: data.name });
+    await logActivity(db, req.user?.userId, 'create', 'gallery_category', result.rows[0]?.id as string, { name: data.name });
     res.status(201).json(result.rows[0]);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -116,7 +116,7 @@ async function updateCategory(db: Pool, req: AuthRequest, res: Response): Promis
       params
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Category not found' }); return; }
-    await logActivity(db, req.userId, 'update', 'gallery_category', id, data as Record<string, unknown>);
+    await logActivity(db, req.user?.userId, 'update', 'gallery_category', id, data as Record<string, unknown>);
     res.json(result.rows[0]);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -146,7 +146,7 @@ async function deleteCategory(db: Pool, req: AuthRequest, res: Response): Promis
       [id]
     );
 
-    await logActivity(db, req.userId, 'delete', 'gallery_category', id, {
+    await logActivity(db, req.user?.userId, 'delete', 'gallery_category', id, {
       oldValues: result.rows[0] as Record<string, unknown>,
       req,
     });
@@ -173,7 +173,7 @@ async function restoreCategory(db: Pool, req: AuthRequest, res: Response): Promi
       'UPDATE gallery_images SET deleted_at = NULL WHERE category_id = $1',
       [id]
     );
-    await logActivity(db, req.userId, 'restore', 'gallery_category', id, {
+    await logActivity(db, req.user?.userId, 'restore', 'gallery_category', id, {
       newValues: result.rows[0] as Record<string, unknown>,
       req,
     });
@@ -217,7 +217,7 @@ async function restoreImage(db: Pool, req: AuthRequest, res: Response): Promise<
       res.status(404).json({ error: 'No deleted image with that id' });
       return;
     }
-    await logActivity(db, req.userId, 'restore', 'gallery_image', id, {
+    await logActivity(db, req.user?.userId, 'restore', 'gallery_image', id, {
       newValues: result.rows[0] as Record<string, unknown>,
       req,
     });
@@ -244,7 +244,7 @@ async function reorderCategories(db: Pool, req: AuthRequest, res: Response): Pro
     } finally {
       client.release();
     }
-    await logActivity(db, req.userId, 'update', 'gallery_category', null, { action: 'reorder', count: ids.length });
+    await logActivity(db, req.user?.userId, 'update', 'gallery_category', null, { action: 'reorder', count: ids.length });
     res.json({ success: true });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -317,7 +317,7 @@ async function uploadImage(db: Pool, req: AuthRequest, res: Response): Promise<v
       [data.category_id, imageUrl, data.title, data.description || null]
     );
 
-    await logActivity(db, req.userId, 'upload', 'gallery_image', result.rows[0]?.id as string, {
+    await logActivity(db, req.user?.userId, 'upload', 'gallery_image', result.rows[0]?.id as string, {
       title: data.title,
       filename: req.file.filename,
     });
@@ -353,7 +353,7 @@ async function updateImage(db: Pool, req: AuthRequest, res: Response): Promise<v
       params
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Image not found' }); return; }
-    await logActivity(db, req.userId, 'update', 'gallery_image', id);
+    await logActivity(db, req.user?.userId, 'update', 'gallery_image', id);
     res.json(result.rows[0]);
   } catch (error) {
     console.error('updateImage failed', error);
@@ -373,7 +373,7 @@ async function deleteImage(db: Pool, req: AuthRequest, res: Response): Promise<v
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Image not found' }); return; }
 
-    await logActivity(db, req.userId, 'delete', 'gallery_image', id, {
+    await logActivity(db, req.user?.userId, 'delete', 'gallery_image', id, {
       oldValues: result.rows[0] as Record<string, unknown>,
       req,
     });
@@ -400,7 +400,7 @@ async function reorderImages(db: Pool, req: AuthRequest, res: Response): Promise
     } finally {
       client.release();
     }
-    await logActivity(db, req.userId, 'update', 'gallery_image', null, { action: 'reorder', count: ids.length });
+    await logActivity(db, req.user?.userId, 'update', 'gallery_image', null, { action: 'reorder', count: ids.length });
     res.json({ success: true });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -439,7 +439,7 @@ async function bulkUpload(db: Pool, req: AuthRequest, res: Response): Promise<vo
       results.push(result.rows[0]);
     }
 
-    await logActivity(db, req.userId, 'upload', 'gallery_image', null, {
+    await logActivity(db, req.user?.userId, 'upload', 'gallery_image', null, {
       action: 'bulk_upload',
       count: files.length,
     });

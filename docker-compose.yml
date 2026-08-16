@@ -1,71 +1,58 @@
-version: '3.8'
+version: '3.9'
 
 services:
-  postgres:
+  db:
     image: postgres:16-alpine
-    container_name: lsn-postgres
+    container_name: lsn-db
     environment:
-      POSTGRES_USER: lsn
-      POSTGRES_PASSWORD: littlesmarties_secure_password
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: littlesmarties
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U lsn"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
 
   backend:
     image: littlesmarties-backend:latest
     container_name: lsn-backend
     build:
-      context: ./apps/backend
-      dockerfile: Dockerfile.prod
-    ports:
-      - "0.0.0.0:3011:3011"
-    environment:
-      DATABASE_URL: postgresql://lsn:littlesmarties_secure_password@postgres:5432/littlesmarties
-      NODE_ENV: production
-      JWT_SECRET: ${JWT_SECRET:-your-jwt-secret-key}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-nextauth-secret}
+      context: .
+      dockerfile: Dockerfile.backend
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3011/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/littlesmarties
+    ports:
+      - "3001:3001"
     restart: unless-stopped
 
   frontend:
     image: littlesmarties-frontend:latest
     container_name: lsn-frontend
     build:
-      context: ./apps/frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.frontend
       args:
-        NEXT_PUBLIC_API_URL: /api/v1
-    ports:
-      - "0.0.0.0:3000:3000"
-    environment:
-      NODE_ENV: production
-      NEXT_PUBLIC_API_URL: /api/v1
+        NEXT_PUBLIC_API_URL: /api
     depends_on:
       - backend
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: /api
+    ports:
+      - "3000:3000"
     restart: unless-stopped
 
 volumes:
-  pgdata:
-  backend_uploads:
-
-networks:
-  default:
-    name: littlesmarties-network
+  postgres_data:

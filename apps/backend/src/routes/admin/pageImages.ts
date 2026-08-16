@@ -171,7 +171,7 @@ async function assignUploaded(db: Pool, req: AuthRequest, res: Response, slotFro
         (body?.title || '').trim() || altFromFilename(req.file.originalname),
         url, uploaded.asset_id ?? null, uploaded.public_id,
         uploaded.bytes ?? req.file.size ?? null, req.file.mimetype,
-        uploaded.width ?? null, uploaded.height ?? null, alt, req.userId ?? null,
+        uploaded.width ?? null, uploaded.height ?? null, alt, req.user?.userId ?? null,
       ]
     );
     const mediaRow = media.rows[0] as { id: string };
@@ -189,7 +189,7 @@ async function assignUploaded(db: Pool, req: AuthRequest, res: Response, slotFro
       [page.mediaSlug, mediaRow.id, slot]
     );
 
-    await logActivity(db, req.userId, 'upload', 'page_media', assignment.rows[0]?.id as string, {
+    await logActivity(db, req.user?.userId, 'upload', 'page_media', assignment.rows[0]?.id as string, {
       newValues: { page: page.mediaSlug, slot, media_id: mediaRow.id }, req,
     });
 
@@ -225,7 +225,7 @@ async function removeImage(db: Pool, req: AuthRequest, res: Response): Promise<v
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'That slot is already empty' }); return; }
 
-    await logActivity(db, req.userId, 'delete', 'page_media', result.rows[0]?.id as string, {
+    await logActivity(db, req.user?.userId, 'delete', 'page_media', result.rows[0]?.id as string, {
       oldValues: result.rows[0] as Record<string, unknown>, req,
     });
     res.status(204).send();

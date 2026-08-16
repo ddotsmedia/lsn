@@ -118,7 +118,7 @@ async function closeConversation(db: Pool, req: AuthRequest, res: Response): Pro
       return;
     }
 
-    await logActivity(db, req.userId, 'status_change', 'chatbot_conversation', id, {
+    await logActivity(db, req.user?.userId, 'status_change', 'chatbot_conversation', id, {
       newStatus: 'closed',
     });
 
@@ -171,7 +171,7 @@ async function replyToConversation(db: Pool, req: AuthRequest, res: Response): P
       [id]
     );
 
-    await logActivity(db, req.userId, 'create', 'chatbot_message', id);
+    await logActivity(db, req.user?.userId, 'create', 'chatbot_message', id);
 
     res.status(201).json(inserted.rows[0]);
   } catch (error) {

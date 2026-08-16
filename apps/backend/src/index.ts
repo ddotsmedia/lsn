@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { Pool } from 'pg';
 import { cloudinary } from './config/cloudinary.js';
-import { createAuthRouter } from './routes/auth.js';
+import authRouter from './routes/auth.js';
 import { createGalleryRouter } from './routes/gallery.js';
 import { createEventsRouter } from './routes/events.js';
 import { createFacilitiesRouter } from './routes/facilities.js';
@@ -58,7 +58,7 @@ app.get('/health', (req, res) => {
 // or fails a request.
 app.use(createAnalyticsTracker(db));
 
-app.use('/api/v1/auth', createAuthRouter(db));
+app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/gallery', createGalleryRouter(db));
 app.use('/api/v1/events', createEventsRouter(db));
 app.use('/api/v1/facilities', createFacilitiesRouter(db));

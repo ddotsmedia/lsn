@@ -2,7 +2,7 @@ import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import { z } from "zod"
 
-const LOGIN_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+const LOGIN_URL = process.env.NEXT_PUBLIC_API_URL || "/api"
 
 // Validation schema
 const CredentialsSchema = z.object({

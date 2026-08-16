@@ -185,7 +185,7 @@ async function uploadImage(db: Pool, req: AuthRequest, res: Response): Promise<v
         (body?.title || '').trim() || altFromFilename(req.file.originalname),
         url, uploaded.asset_id ?? null, uploaded.public_id,
         uploaded.bytes ?? req.file.size ?? null, req.file.mimetype,
-        uploaded.width ?? null, uploaded.height ?? null, alt, req.userId ?? null,
+        uploaded.width ?? null, uploaded.height ?? null, alt, req.user?.userId ?? null,
       ]
     );
     const mediaId = (media.rows[0] as { id: string }).id;
@@ -212,7 +212,7 @@ async function uploadImage(db: Pool, req: AuthRequest, res: Response): Promise<v
       [slug, mediaId, rawType, (next.rows[0] as { next: number }).next]
     );
 
-    await logActivity(db, req.userId, 'upload', 'age_group_image', assignment.rows[0]?.id as string, {
+    await logActivity(db, req.user?.userId, 'upload', 'age_group_image', assignment.rows[0]?.id as string, {
       newValues: { slug, image_type: rawType, media_id: mediaId }, req,
     });
 
@@ -244,7 +244,7 @@ async function removeImage(db: Pool, req: AuthRequest, res: Response): Promise<v
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Image not found for this age group' }); return; }
 
-    await logActivity(db, req.userId, 'delete', 'age_group_image', req.params.imageId as string, {
+    await logActivity(db, req.user?.userId, 'delete', 'age_group_image', req.params.imageId as string, {
       oldValues: result.rows[0] as Record<string, unknown>, req,
     });
     res.status(204).send();

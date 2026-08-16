@@ -94,9 +94,9 @@ async function createPage(db: Pool, req: AuthRequest, res: Response): Promise<vo
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9) RETURNING *`,
       [data.title, data.slug, data.content || null, data.meta_title || null,
        data.meta_description || null, data.meta_keywords || null,
-       data.og_image || null, data.status || 'draft', req.userId]
+       data.og_image || null, data.status || 'draft', req.user?.userId]
     );
-    await logActivity(db, req.userId, 'create', 'page', result.rows[0]?.id as string, { title: data.title, slug: data.slug });
+    await logActivity(db, req.user?.userId, 'create', 'page', result.rows[0]?.id as string, { title: data.title, slug: data.slug });
     res.status(201).json(result.rows[0]);
   } catch (error) {
     if (error instanceof z.ZodError) { res.status(400).json({ error: 'Validation failed', details: error.issues }); return; }
@@ -122,7 +122,7 @@ async function updatePage(db: Pool, req: AuthRequest, res: Response): Promise<vo
       if (data[f] !== undefined) { sets.push(`${f} = $${idx++}`); params.push(data[f] ?? null); }
     }
     sets.push(`updated_by = $${idx++}`);
-    params.push(req.userId);
+    params.push(req.user?.userId);
     sets.push(`updated_at = CURRENT_TIMESTAMP`);
 
     if (params.length <= 1) { res.status(400).json({ error: 'No fields to update' }); return; }
@@ -133,7 +133,7 @@ async function updatePage(db: Pool, req: AuthRequest, res: Response): Promise<vo
       params
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Page not found' }); return; }
-    await logActivity(db, req.userId, 'update', 'page', id, data as Record<string, unknown>);
+    await logActivity(db, req.user?.userId, 'update', 'page', id, data as Record<string, unknown>);
     res.json(result.rows[0]);
   } catch (error) {
     if (error instanceof z.ZodError) { res.status(400).json({ error: 'Validation failed', details: error.issues }); return; }
@@ -151,7 +151,7 @@ async function deletePage(db: Pool, req: AuthRequest, res: Response): Promise<vo
     const { id } = req.params;
     const result = await db.query('DELETE FROM pages WHERE id = $1 RETURNING id', [id]);
     if (result.rows.length === 0) { res.status(404).json({ error: 'Page not found' }); return; }
-    await logActivity(db, req.userId, 'delete', 'page', id);
+    await logActivity(db, req.user?.userId, 'delete', 'page', id);
     res.status(204).send();
   } catch (error) {
     console.error('deletePage failed', error);
@@ -171,7 +171,7 @@ async function reorderPages(db: Pool, req: AuthRequest, res: Response): Promise<
       await client.query('COMMIT');
     } catch (err) { await client.query('ROLLBACK'); throw err; }
     finally { client.release(); }
-    await logActivity(db, req.userId, 'update', 'page', null, { action: 'reorder', count: ids.length });
+    await logActivity(db, req.user?.userId, 'update', 'page', null, { action: 'reorder', count: ids.length });
     res.json({ success: true });
   } catch (error) {
     if (error instanceof z.ZodError) { res.status(400).json({ error: 'Validation failed', details: error.issues }); return; }
@@ -185,10 +185,10 @@ async function publishPage(db: Pool, req: AuthRequest, res: Response): Promise<v
     const { id } = req.params;
     const result = await db.query(
       `UPDATE pages SET status = 'published', updated_by = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *`,
-      [req.userId, id]
+      [req.user?.userId, id]
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Page not found' }); return; }
-    await logActivity(db, req.userId, 'status_change', 'page', id, { status: 'published' });
+    await logActivity(db, req.user?.userId, 'status_change', 'page', id, { status: 'published' });
     res.json(result.rows[0]);
   } catch (error) {
     console.error('publishPage failed', error);
@@ -201,10 +201,10 @@ async function unpublishPage(db: Pool, req: AuthRequest, res: Response): Promise
     const { id } = req.params;
     const result = await db.query(
       `UPDATE pages SET status = 'draft', updated_by = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *`,
-      [req.userId, id]
+      [req.user?.userId, id]
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Page not found' }); return; }
-    await logActivity(db, req.userId, 'status_change', 'page', id, { status: 'draft' });
+    await logActivity(db, req.user?.userId, 'status_change', 'page', id, { status: 'draft' });
     res.json(result.rows[0]);
   } catch (error) {
     console.error('unpublishPage failed', error);

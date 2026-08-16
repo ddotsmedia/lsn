@@ -62,7 +62,7 @@ export default function RegistrationsPage() {
 
   const exportCSV = () => {
     const token = localStorage.getItem('lsn_token');
-    const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/admin/registrations/export?status=${statusFilter}`;
+    const url = `${process.env.NEXT_PUBLIC_API_URL || '/api/api/v1'}/admin/registrations/export?status=${statusFilter}`;
     window.open(url + `&token=${token}`, '_blank');
   };
 

@@ -111,7 +111,7 @@ async function inviteAdmin(db: Pool, req: AuthRequest, res: Response): Promise<v
 
       await client.query('COMMIT');
 
-      await logActivity(db, req.userId, 'invite', 'user', userId, {
+      await logActivity(db, req.user?.userId, 'invite', 'user', userId, {
         email: data.email,
         role: data.role || 'moderator',
       });
@@ -136,7 +136,7 @@ async function updateRole(db: Pool, req: AuthRequest, res: Response): Promise<vo
     const data = RoleUpdateSchema.parse(req.body);
 
     // Prevent self-demotion
-    if (id === req.userId) {
+    if (id === req.user?.userId) {
       res.status(400).json({ error: 'Cannot change your own role' });
       return;
     }
@@ -151,7 +151,7 @@ async function updateRole(db: Pool, req: AuthRequest, res: Response): Promise<vo
     // Keep users.role, the authorization source of truth, in step.
     await db.query("UPDATE users SET role = 'admin' WHERE id = $1", [id]);
 
-    await logActivity(db, req.userId, 'update', 'admin_user', id, { role: data.role });
+    await logActivity(db, req.user?.userId, 'update', 'admin_user', id, { role: data.role });
     res.json(result.rows[0]);
   } catch (error) {
     if (error instanceof z.ZodError) { res.status(400).json({ error: 'Validation failed', details: error.issues }); return; }
@@ -164,7 +164,7 @@ async function revokeAdmin(db: Pool, req: AuthRequest, res: Response): Promise<v
   try {
     const { id } = req.params;
 
-    if (id === req.userId) {
+    if (id === req.user?.userId) {
       res.status(400).json({ error: 'Cannot revoke your own admin access' });
       return;
     }
@@ -174,7 +174,7 @@ async function revokeAdmin(db: Pool, req: AuthRequest, res: Response): Promise<v
     // users.role decides isAdmin, so revoking must clear it there too —
     // otherwise the account keeps full admin access.
     await db.query("UPDATE users SET role = 'user' WHERE id = $1", [id]);
-    await logActivity(db, req.userId, 'delete', 'admin_user', id);
+    await logActivity(db, req.user?.userId, 'delete', 'admin_user', id);
     res.status(204).send();
   } catch (error) {
     console.error('revokeAdmin failed', error);

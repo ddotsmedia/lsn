@@ -106,11 +106,11 @@ export async function createSection(db: Pool, req: AuthRequest, res: Response): 
         pageId, data.section_key, data.title ?? null,
         sanitizeHtml(data.content ?? null), data.is_visible ?? true,
         data.sort_order ?? (next.rows[0] as { next: number }).next,
-        req.userId ?? null,
+        req.user?.userId ?? null,
       ]
     );
 
-    await logActivity(db, req.userId, 'create', 'page_content_section', result.rows[0]?.id as string, {
+    await logActivity(db, req.user?.userId, 'create', 'page_content_section', result.rows[0]?.id as string, {
       newValues: result.rows[0] as Record<string, unknown>, req,
     });
     res.status(201).json(result.rows[0]);
@@ -153,7 +153,7 @@ export async function updateSection(db: Pool, req: AuthRequest, res: Response): 
 
     if (sets.length === 0) { res.status(400).json({ error: 'No fields to update' }); return; }
     sets.push(`updated_by = $${idx++}`);
-    params.push(req.userId ?? null);
+    params.push(req.user?.userId ?? null);
 
     params.push(sectionId);
     const result = await db.query(
@@ -161,7 +161,7 @@ export async function updateSection(db: Pool, req: AuthRequest, res: Response): 
       params
     );
 
-    await logActivity(db, req.userId, 'update', 'page_content_section', sectionId as string, {
+    await logActivity(db, req.user?.userId, 'update', 'page_content_section', sectionId as string, {
       oldValues: before.rows[0] as Record<string, unknown>,
       newValues: result.rows[0] as Record<string, unknown>,
       req,
@@ -187,11 +187,11 @@ export async function deleteSection(db: Pool, req: AuthRequest, res: Response): 
     const result = await db.query(
       `UPDATE page_content_sections SET deleted_at = NOW(), updated_by = $1
         WHERE id = $2 AND deleted_at IS NULL RETURNING *`,
-      [req.userId ?? null, sectionId]
+      [req.user?.userId ?? null, sectionId]
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Section not found' }); return; }
 
-    await logActivity(db, req.userId, 'delete', 'page_content_section', sectionId as string, {
+    await logActivity(db, req.user?.userId, 'delete', 'page_content_section', sectionId as string, {
       oldValues: result.rows[0] as Record<string, unknown>, req,
     });
     res.json({ success: true });
@@ -207,11 +207,11 @@ export async function restoreSection(db: Pool, req: AuthRequest, res: Response):
     const result = await db.query(
       `UPDATE page_content_sections SET deleted_at = NULL, updated_by = $1
         WHERE id = $2 AND deleted_at IS NOT NULL RETURNING *`,
-      [req.userId ?? null, sectionId]
+      [req.user?.userId ?? null, sectionId]
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'No deleted section with that id' }); return; }
 
-    await logActivity(db, req.userId, 'restore', 'page_content_section', sectionId as string, {
+    await logActivity(db, req.user?.userId, 'restore', 'page_content_section', sectionId as string, {
       newValues: result.rows[0] as Record<string, unknown>, req,
     });
     res.json(result.rows[0]);
@@ -240,7 +240,7 @@ export async function reorderSections(db: Pool, req: AuthRequest, res: Response)
           SET sort_order = v.ord, updated_by = $3
          FROM (SELECT unnest($1::uuid[]) AS id, generate_subscripts($1::uuid[], 1) AS ord) AS v
         WHERE s.id = v.id AND s.page_id = $2 AND s.deleted_at IS NULL`,
-      [ids, pageId, req.userId ?? null]
+      [ids, pageId, req.user?.userId ?? null]
     );
     res.json({ reordered: ids.length });
   } catch (error) {

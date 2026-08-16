@@ -43,7 +43,7 @@ class ApiClient {
   private errorInterceptors: ErrorInterceptor[] = [];
 
   constructor(options: ApiClientOptions = {}) {
-    this.baseUrl = options.baseUrl || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    this.baseUrl = options.baseUrl || process.env.NEXT_PUBLIC_API_URL || '/api';
     this.timeout = options.timeout || 30000;
     this.headers = {
       'Content-Type': 'application/json',

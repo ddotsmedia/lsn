@@ -47,9 +47,9 @@ async function upsertSetting(db: Pool, req: AuthRequest, res: Response): Promise
        VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
        ON CONFLICT (key) DO UPDATE SET value = $2, updated_by = $3, updated_at = CURRENT_TIMESTAMP
        RETURNING *`,
-      [data.key, JSON.stringify(data.value), req.userId]
+      [data.key, JSON.stringify(data.value), req.user?.userId]
     );
-    await logActivity(db, req.userId, 'update', 'site_settings', data.key, { key: data.key });
+    await logActivity(db, req.user?.userId, 'update', 'site_settings', data.key, { key: data.key });
     res.json(result.rows[0]);
   } catch (error) {
     if (error instanceof z.ZodError) { res.status(400).json({ error: 'Validation failed', details: error.issues }); return; }
@@ -74,14 +74,14 @@ async function bulkUpdateSettings(db: Pool, req: AuthRequest, res: Response): Pr
           `INSERT INTO site_settings (key, value, updated_by, updated_at)
            VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
            ON CONFLICT (key) DO UPDATE SET value = $2, updated_by = $3, updated_at = CURRENT_TIMESTAMP`,
-          [key, JSON.stringify(value), req.userId]
+          [key, JSON.stringify(value), req.user?.userId]
         );
       }
       await client.query('COMMIT');
     } catch (err) { await client.query('ROLLBACK'); throw err; }
     finally { client.release(); }
 
-    await logActivity(db, req.userId, 'update', 'site_settings', null, { keys: Object.keys(body) });
+    await logActivity(db, req.user?.userId, 'update', 'site_settings', null, { keys: Object.keys(body) });
     res.json({ success: true, updated: Object.keys(body).length });
   } catch (error) {
     console.error('bulkUpdateSettings failed', error);

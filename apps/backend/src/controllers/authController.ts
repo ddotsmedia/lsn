@@ -170,19 +170,19 @@ export async function logout(db: Pool, req: AuthRequest, res: Response): Promise
 /**
  * GET /api/v1/auth/me
  *
- * Requires `authenticate` + `resolveAdmin` to have run first (req.userId /
+ * Requires `authenticate` + `resolveAdmin` to have run first (req.user?.userId /
  * req.isAdmin are set by those). Used by the admin panel to decide whether
  * the logged-in user may enter /admin and what role/permissions they have.
  */
 export async function me(db: Pool, req: AuthRequest, res: Response): Promise<void> {
   try {
-    if (!req.userId) {
+    if (!req.user?.userId) {
       res.status(401).json({ error: 'Not authenticated' });
       return;
     }
     const result = await db.query(
       'SELECT id, email, name, phone, role, is_active, created_at, updated_at FROM users WHERE id = $1',
-      [req.userId]
+      [req.user?.userId]
     );
     if (result.rows.length === 0) {
       res.status(401).json({ error: 'User not found' });

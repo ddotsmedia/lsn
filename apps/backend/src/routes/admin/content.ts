@@ -145,10 +145,10 @@ async function createEvent(db: Pool, req: AuthRequest, res: Response): Promise<v
         data.event_time ?? null, data.end_time ?? null, data.location ?? null,
         data.image_url ?? null, data.event_type ?? 'General',
         data.age_groups ?? null, data.is_published ?? true,
-        data.capacity ?? null, data.latitude ?? null, data.longitude ?? null, req.userId ?? null,
+        data.capacity ?? null, data.latitude ?? null, data.longitude ?? null, req.user?.userId ?? null,
       ]
     );
-    await logActivity(db, req.userId, 'create', 'news_event', result.rows[0]?.id as string, { title: data.title });
+    await logActivity(db, req.user?.userId, 'create', 'news_event', result.rows[0]?.id as string, { title: data.title });
     res.status(201).json(result.rows[0]);
   } catch (error) {
     if (error instanceof z.ZodError) { res.status(400).json({ error: 'Validation failed', details: error.issues }); return; }
@@ -191,7 +191,7 @@ async function updateEvent(db: Pool, req: AuthRequest, res: Response): Promise<v
       params
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Event not found' }); return; }
-    await logActivity(db, req.userId, 'update', 'news_event', id, data as Record<string, unknown>);
+    await logActivity(db, req.user?.userId, 'update', 'news_event', id, data as Record<string, unknown>);
     res.json(result.rows[0]);
   } catch (error) {
     if (error instanceof z.ZodError) { res.status(400).json({ error: 'Validation failed', details: error.issues }); return; }
@@ -209,7 +209,7 @@ async function deleteEvent(db: Pool, req: AuthRequest, res: Response): Promise<v
       [id]
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Event not found' }); return; }
-    await logActivity(db, req.userId, 'delete', 'news_event', id, {
+    await logActivity(db, req.user?.userId, 'delete', 'news_event', id, {
       oldValues: result.rows[0] as Record<string, unknown>,
       req,
     });
@@ -232,7 +232,7 @@ async function restoreEvent(db: Pool, req: AuthRequest, res: Response): Promise<
       res.status(404).json({ error: 'No deleted event with that id' });
       return;
     }
-    await logActivity(db, req.userId, 'restore', 'news_event', id, {
+    await logActivity(db, req.user?.userId, 'restore', 'news_event', id, {
       newValues: result.rows[0] as Record<string, unknown>,
       req,
     });
@@ -298,7 +298,7 @@ async function createFacility(db: Pool, req: AuthRequest, res: Response): Promis
        data.meta_title ?? null, data.meta_description ?? null, data.icon ?? null,
        data.sort_order ?? (next.rows[0] as { next: number }).next]
     );
-    await logActivity(db, req.userId, 'create', 'facility', result.rows[0]?.id as string, {
+    await logActivity(db, req.user?.userId, 'create', 'facility', result.rows[0]?.id as string, {
       newValues: result.rows[0] as Record<string, unknown>, req,
     });
     res.status(201).json(result.rows[0]);
@@ -333,7 +333,7 @@ async function updateFacility(db: Pool, req: AuthRequest, res: Response): Promis
       params
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Facility not found' }); return; }
-    await logActivity(db, req.userId, 'update', 'facility', id, data as Record<string, unknown>);
+    await logActivity(db, req.user?.userId, 'update', 'facility', id, data as Record<string, unknown>);
     res.json(result.rows[0]);
   } catch (error) {
     if (error instanceof z.ZodError) { res.status(400).json({ error: 'Validation failed', details: error.issues }); return; }
@@ -353,7 +353,7 @@ async function deleteFacility(db: Pool, req: AuthRequest, res: Response): Promis
       [id]
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Facility not found' }); return; }
-    await logActivity(db, req.userId, 'delete', 'facility', id, {
+    await logActivity(db, req.user?.userId, 'delete', 'facility', id, {
       oldValues: result.rows[0] as Record<string, unknown>, req,
     });
     res.status(204).send();
@@ -375,7 +375,7 @@ async function restoreFacility(db: Pool, req: AuthRequest, res: Response): Promi
       res.status(404).json({ error: 'No deleted facility with that id' });
       return;
     }
-    await logActivity(db, req.userId, 'restore', 'facility', id, {
+    await logActivity(db, req.user?.userId, 'restore', 'facility', id, {
       newValues: result.rows[0] as Record<string, unknown>, req,
     });
     res.json(result.rows[0]);
@@ -397,7 +397,7 @@ async function reorderFacilities(db: Pool, req: AuthRequest, res: Response): Pro
       await client.query('COMMIT');
     } catch (err) { await client.query('ROLLBACK'); throw err; }
     finally { client.release(); }
-    await logActivity(db, req.userId, 'update', 'facility', null, { action: 'reorder', count: ids.length });
+    await logActivity(db, req.user?.userId, 'update', 'facility', null, { action: 'reorder', count: ids.length });
     res.json({ success: true });
   } catch (error) {
     if (error instanceof z.ZodError) { res.status(400).json({ error: 'Validation failed', details: error.issues }); return; }
@@ -428,7 +428,7 @@ async function createAgeGroup(db: Pool, req: AuthRequest, res: Response): Promis
       'INSERT INTO age_groups (name, description, min_age_months, max_age_months) VALUES ($1, $2, $3, $4) RETURNING *',
       [data.name, data.description ?? null, data.min_age_months, data.max_age_months]
     );
-    await logActivity(db, req.userId, 'create', 'age_group', String(result.rows[0]?.id), { name: data.name });
+    await logActivity(db, req.user?.userId, 'create', 'age_group', String(result.rows[0]?.id), { name: data.name });
     res.status(201).json(result.rows[0]);
   } catch (error) {
     if (error instanceof z.ZodError) { res.status(400).json({ error: 'Validation failed', details: error.issues }); return; }
@@ -458,7 +458,7 @@ async function updateAgeGroup(db: Pool, req: AuthRequest, res: Response): Promis
       params
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Age group not found' }); return; }
-    await logActivity(db, req.userId, 'update', 'age_group', id);
+    await logActivity(db, req.user?.userId, 'update', 'age_group', id);
     res.json(result.rows[0]);
   } catch (error) {
     if (error instanceof z.ZodError) { res.status(400).json({ error: 'Validation failed', details: error.issues }); return; }
@@ -477,7 +477,7 @@ async function deleteAgeGroup(db: Pool, req: AuthRequest, res: Response): Promis
       [id]
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Age group not found' }); return; }
-    await logActivity(db, req.userId, 'delete', 'age_group', id);
+    await logActivity(db, req.user?.userId, 'delete', 'age_group', id);
     res.status(204).send();
   } catch (error) {
     // FK constraint — age group in use by registrations

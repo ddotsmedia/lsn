@@ -102,11 +102,11 @@ export async function createTestimonial(db: Pool, req: AuthRequest, res: Respons
       [
         data.author_name, data.author_title ?? null, data.quote, data.rating ?? null,
         data.is_published ?? false, data.sort_order ?? (next.rows[0] as { next: number }).next,
-        data.page_slug ?? null, req.userId ?? null,
+        data.page_slug ?? null, req.user?.userId ?? null,
       ]
     );
 
-    await logActivity(db, req.userId, 'create', 'testimonial', result.rows[0]?.id as string, {
+    await logActivity(db, req.user?.userId, 'create', 'testimonial', result.rows[0]?.id as string, {
       newValues: result.rows[0] as Record<string, unknown>, req,
     });
     res.status(201).json(result.rows[0]);
@@ -142,7 +142,7 @@ export async function updateTestimonial(db: Pool, req: AuthRequest, res: Respons
     }
     if (sets.length === 0) { res.status(400).json({ error: 'No fields to update' }); return; }
     sets.push(`uploaded_by = $${idx++}`);
-    params.push(req.userId ?? null);
+    params.push(req.user?.userId ?? null);
 
     params.push(id);
     const result = await db.query(
@@ -150,7 +150,7 @@ export async function updateTestimonial(db: Pool, req: AuthRequest, res: Respons
       params
     );
 
-    await logActivity(db, req.userId, 'update', 'testimonial', id as string, {
+    await logActivity(db, req.user?.userId, 'update', 'testimonial', id as string, {
       oldValues: before.rows[0] as Record<string, unknown>,
       newValues: result.rows[0] as Record<string, unknown>,
       req,
@@ -172,11 +172,11 @@ export async function deleteTestimonial(db: Pool, req: AuthRequest, res: Respons
     const result = await db.query(
       `UPDATE testimonials SET deleted_at = NOW(), uploaded_by = $1
         WHERE id = $2 AND deleted_at IS NULL RETURNING *`,
-      [req.userId ?? null, id]
+      [req.user?.userId ?? null, id]
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Testimonial not found' }); return; }
 
-    await logActivity(db, req.userId, 'delete', 'testimonial', id as string, {
+    await logActivity(db, req.user?.userId, 'delete', 'testimonial', id as string, {
       oldValues: result.rows[0] as Record<string, unknown>, req,
     });
     res.json({ success: true });
@@ -192,11 +192,11 @@ export async function restoreTestimonial(db: Pool, req: AuthRequest, res: Respon
     const result = await db.query(
       `UPDATE testimonials SET deleted_at = NULL, uploaded_by = $1
         WHERE id = $2 AND deleted_at IS NOT NULL RETURNING *`,
-      [req.userId ?? null, id]
+      [req.user?.userId ?? null, id]
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'No deleted testimonial with that id' }); return; }
 
-    await logActivity(db, req.userId, 'restore', 'testimonial', id as string, {
+    await logActivity(db, req.user?.userId, 'restore', 'testimonial', id as string, {
       newValues: result.rows[0] as Record<string, unknown>, req,
     });
     res.json(result.rows[0]);
@@ -276,10 +276,10 @@ export async function uploadAuthorImage(db: Pool, req: AuthRequest, res: Respons
     const result = await db.query(
       `UPDATE testimonials SET author_image_url = $1, cloudinary_id = $2, uploaded_by = $3
         WHERE id = $4 AND deleted_at IS NULL RETURNING *`,
-      [url, uploaded.public_id, req.userId ?? null, id]
+      [url, uploaded.public_id, req.user?.userId ?? null, id]
     );
 
-    await logActivity(db, req.userId, 'upload', 'testimonial', id as string, {
+    await logActivity(db, req.user?.userId, 'upload', 'testimonial', id as string, {
       details: { action: 'author_image_uploaded', cloudinary_id: uploaded.public_id }, req,
     });
     res.json({ success: true, testimonial: result.rows[0] });
@@ -303,7 +303,7 @@ export async function deleteAuthorImage(db: Pool, req: AuthRequest, res: Respons
     const result = await db.query(
       `UPDATE testimonials SET author_image_url = NULL, cloudinary_id = NULL, uploaded_by = $1
         WHERE id = $2 RETURNING *`,
-      [req.userId ?? null, id]
+      [req.user?.userId ?? null, id]
     );
 
     if (publicId) {
@@ -314,7 +314,7 @@ export async function deleteAuthorImage(db: Pool, req: AuthRequest, res: Respons
       }
     }
 
-    await logActivity(db, req.userId, 'delete', 'testimonial', id as string, {
+    await logActivity(db, req.user?.userId, 'delete', 'testimonial', id as string, {
       details: { action: 'author_image_removed' }, req,
     });
     res.json({ success: true, testimonial: result.rows[0] });

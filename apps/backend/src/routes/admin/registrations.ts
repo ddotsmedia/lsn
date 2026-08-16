@@ -110,7 +110,7 @@ async function updateRegistrationStatus(db: Pool, req: AuthRequest, res: Respons
       return;
     }
 
-    await logActivity(db, req.userId, 'status_change', 'registration', id, {
+    await logActivity(db, req.user?.userId, 'status_change', 'registration', id, {
       newStatus: data.status,
       notes: data.notes,
     });
@@ -134,7 +134,7 @@ async function deleteRegistration(db: Pool, req: AuthRequest, res: Response): Pr
       res.status(404).json({ error: 'Registration not found' });
       return;
     }
-    await logActivity(db, req.userId, 'delete', 'registration', id);
+    await logActivity(db, req.user?.userId, 'delete', 'registration', id);
     res.status(204).send();
   } catch (error) {
     console.error('deleteRegistration failed', error);

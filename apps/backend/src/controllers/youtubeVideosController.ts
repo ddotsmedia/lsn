@@ -145,12 +145,12 @@ export async function createYoutubeVideo(db: Pool, req: AuthRequest, res: Respon
         youtubeId,
         data.thumbnail_url ?? thumbnailFor(youtubeId),
         data.display_order ?? 0,
-        req.userId ?? null,
+        req.user?.userId ?? null,
       ]
     );
     const row = result.rows[0] as YoutubeVideo;
 
-    await logActivity(db, req.userId, 'create', 'youtube_video', row.id, {
+    await logActivity(db, req.user?.userId, 'create', 'youtube_video', row.id, {
       newValues: row as unknown as Record<string, unknown>,
       req,
     });
@@ -214,7 +214,7 @@ export async function updateYoutubeVideo(db: Pool, req: AuthRequest, res: Respon
       ]
     );
 
-    await logActivity(db, req.userId, 'update', 'youtube_video', id, {
+    await logActivity(db, req.user?.userId, 'update', 'youtube_video', id, {
       oldValues: existing.rows[0] as Record<string, unknown>,
       newValues: result.rows[0] as Record<string, unknown>,
       req,
@@ -246,7 +246,7 @@ export async function deleteYoutubeVideo(db: Pool, req: AuthRequest, res: Respon
       res.status(404).json({ error: 'Video not found' });
       return;
     }
-    await logActivity(db, req.userId, 'delete', 'youtube_video', id, {
+    await logActivity(db, req.user?.userId, 'delete', 'youtube_video', id, {
       oldValues: result.rows[0] as Record<string, unknown>,
       req,
     });
@@ -269,7 +269,7 @@ export async function restoreYoutubeVideo(db: Pool, req: AuthRequest, res: Respo
       res.status(404).json({ error: 'No deleted video with that id' });
       return;
     }
-    await logActivity(db, req.userId, 'restore', 'youtube_video', id, {
+    await logActivity(db, req.user?.userId, 'restore', 'youtube_video', id, {
       newValues: result.rows[0] as Record<string, unknown>,
       req,
     });
