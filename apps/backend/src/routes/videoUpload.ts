@@ -5,10 +5,10 @@ import { authenticate, createResolveAdmin } from '../middleware/auth.js';
 import type { AuthRequest } from '../middleware/auth.js';
 import {
   uploadToCloudinary,
-  saveVideoMetadata,
-//   getUploadedVideos,
-//   deleteVideo,
-//   restoreVideo,
+  // saveVideoMetadata,
+  // getUploadedVideos,
+  // deleteVideo,
+  // restoreVideo,
 } from '../controllers/videoUploadController.js';
 
 /**
@@ -56,20 +56,20 @@ export const createVideoUploadRouter = (db: Pool) => {
   // every guarded endpoint returned 403 — for admins too. authenticate and
   // resolveAdmin have to run first for those checks to mean anything.
   // Listing stays public: the gallery page shows videos to visitors.
-  router.get('/list', (req, res) => getUploadedVideos(db, req as AuthRequest, res));
+  // router.get('/list', (req, res) => getUploadedVideos(db, req as AuthRequest, res));
 
   router.post('/upload', authenticate, resolveAdmin, handleVideoUpload, (req, res) =>
     uploadToCloudinary(req as AuthRequest, res)
   );
-  router.post('/save', authenticate, resolveAdmin, (req, res) =>
-    saveVideoMetadata(db, req as AuthRequest, res)
-  );
-  router.delete('/:id', authenticate, resolveAdmin, (req, res) =>
-    deleteVideo(db, req as AuthRequest, res)
-  );
-  router.post('/:id/restore', authenticate, resolveAdmin, (req, res) =>
-    restoreVideo(db, req as AuthRequest, res)
-  );
+  // router.post('/save', authenticate, resolveAdmin, (req, res) =>
+  //   saveVideoMetadata(db, req as AuthRequest, res)
+  // );
+  // router.delete('/:id', authenticate, resolveAdmin, (req, res) =>
+  //   deleteVideo(db, req as AuthRequest, res)
+  // );
+  // router.post('/:id/restore', authenticate, resolveAdmin, (req, res) =>
+  //   restoreVideo(db, req as AuthRequest, res)
+  // );
 
   return router;
 };

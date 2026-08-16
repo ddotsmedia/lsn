@@ -12,6 +12,6 @@
     "resolveJsonModule": true,
     "moduleResolution": "node"
   },
-  "include": ["apps/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["apps/backend/**/*.ts"],
+  "exclude": ["node_modules", "dist", "apps/frontend", "apps/web"]
 }
