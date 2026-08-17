@@ -109,5 +109,5 @@ export function AdminHeader({ title, subtitle, actions }: HeaderProps) {
 
 // Re-export the old public Header as default for compatibility with existing pages
 // Public pages should use this, admin pages should use AdminHeader directly
-import PublicHeader from '../../components/Header';
+import { Header as PublicHeader } from '../../components/Header';
 export default PublicHeader;
