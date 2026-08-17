@@ -45,7 +45,8 @@
       "Bash(chmod +x deploy-production.sh)",
       "Bash(npm list *)",
       "PowerShell(tail *)",
-      "PowerShell(ls *)"
+      "PowerShell(ls *)",
+      "Bash(ssh-keyscan -t rsa lsn.ae)"
     ]
   }
 }
