@@ -59,7 +59,7 @@ export async function api<T = unknown>(path: string, options: FetchOptions = {})
 // Auth helpers
 export async function login(email: string, password: string) {
   const data = await api<{ accessToken: string; refreshToken: string; user: Record<string, unknown> }>(
-    '/api/v1/auth/login',
+    '/v1/auth/login',
     { method: 'POST', body: JSON.stringify({ email, password }) }
   );
   localStorage.setItem('lsn_token', data.accessToken);
@@ -73,7 +73,7 @@ export async function getMe() {
     isAdmin: boolean;
     role: string | null;
     permissions: string[];
-  }>('/api/v1/auth/me');
+  }>('/v1/auth/me');
 }
 
 export function logout() {
