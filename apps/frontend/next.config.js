@@ -5,6 +5,18 @@ const nextConfig = {
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../../"),
   reactStrictMode: true,
+
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: "/api/:path*",
+          destination: "http://backend:3001/api/:path*",
+        },
+      ],
+    };
+  },
+
   images: {
     remotePatterns: [
       {
