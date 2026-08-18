@@ -2,8 +2,6 @@
 const path = require("path");
 
 const nextConfig = {
-  output: "standalone",
-  outputFileTracingRoot: path.join(__dirname, "../../"),
   reactStrictMode: true,
 
   async rewrites() {
