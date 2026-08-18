@@ -25,7 +25,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const validated = CredentialsSchema.parse(credentials)
 
           // Call backend login API
-          const response = await fetch(`${LOGIN_URL}/api/v1/auth/login`, {
+          const response = await fetch(`${LOGIN_URL}/v1/auth/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(validated),
