@@ -376,7 +376,7 @@ export default function Home() {
             {/* Detail panel */}
             <div className="mt-10 grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
               <div>
-                <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-red-600 text-3xl">
+                <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl text-3xl">
                   {activeGroup.icon}
                 </div>
                 <h3 className="mt-5 font-display text-3xl text-gray-900">{activeGroup.name}</h3>
