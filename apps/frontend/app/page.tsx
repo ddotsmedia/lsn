@@ -19,6 +19,7 @@ import { PageFeatureImages, PageBackground } from '@/components/PageFeatureImage
 import { usePageMedia } from '@/lib/media';
 import type { SiteImage } from '@/lib/media';
 import { useTestimonials, type ApiTestimonial } from '@/lib/testimonials';
+import { usePageHeading } from '@/lib/pageHeadings';
 
 interface FeaturedVideo {
   id: string;
@@ -186,6 +187,10 @@ export default function Home() {
   // fails quiet, so a request problem leaves the page exactly as it was.
   const pageImages = usePageMedia('home');
 
+  // Editable in admin -> Page Headings. The fallback is the text this hero used
+  // to hardcode, so the H1 is never empty.
+  const heading = usePageHeading('home', 'Welcome to\nLittle Smarties Nursery');
+
   // Managed in admin -> Testimonials. Falls back to the built-in reviews when
   // nothing is published for this page or the request fails.
   const testimonials = useTestimonials('home', FALLBACK_TESTIMONIALS);
@@ -262,10 +267,10 @@ export default function Home() {
           </div>
 
           <div className="relative z-10 flex min-h-[420px] flex-col items-center justify-center px-4 py-24 text-center sm:min-h-[480px] sm:py-28">
-            <h1 className="font-display text-5xl leading-tight text-white drop-shadow-sm sm:text-6xl lg:text-7xl">
-              Welcome to
-              <br />
-              Little Smarties Nursery
+            {/* whitespace-pre-line keeps the newline in the stored heading, which
+                is what replaced the <br/> this used to hardcode. */}
+            <h1 className="font-display whitespace-pre-line text-5xl leading-tight text-white drop-shadow-sm sm:text-6xl lg:text-7xl">
+              {heading}
             </h1>
             <Link href="/nursery" className="mt-8">
               <button className="h-12 rounded-full bg-red-600 px-8 font-bold text-white shadow-lg transition-transform hover:scale-105 sm:h-14 sm:px-10">

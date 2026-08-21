@@ -6,6 +6,7 @@ import Footer from '@/components/Footer';
 import { PageSections } from '@/components/PageSections';
 import { HeroBackground } from '@/components/HeroBackground';
 import { usePageMedia } from '@/lib/media';
+import { usePageHeading } from '@/lib/pageHeadings';
 import Modal from '@/components/Modal';
 import VideoUploadModal from '@/components/VideoUploadModal';
 
@@ -49,6 +50,8 @@ const API = process.env.NEXT_PUBLIC_API_URL;
 export default function GalleryPage() {
   // Hero image uploaded via admin → Media Library → Pages.
   const pageImages = usePageMedia('gallery');
+  // Editable in admin -> Page Headings; falls back to the previous hardcoded H1.
+  const heading = usePageHeading('gallery', 'Gallery');
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [categories, setCategories] = useState<GalleryCategory[]>([]);
   const [active, setActive] = useState('all');
@@ -189,7 +192,7 @@ export default function GalleryPage() {
           <HeroBackground image={pageImages.hero} />
           <div className="relative z-10">
             <h1 id="gallery-hero" className="text-3xl font-bold text-white md:text-4xl lg:text-5xl">
-              Gallery
+              {heading}
             </h1>
             <p className="mx-auto mt-3 max-w-xl text-base text-blue-50 md:text-lg">
               A look inside our rooms, our garden and our busiest days.

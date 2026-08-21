@@ -19,6 +19,7 @@ import { createAdminChatbotRouter } from './chatbot.js';
 import { createAdminSocialLinksRouter } from './socialLinks.js';
 import { createAdminYoutubeVideosRouter } from './youtubeVideos.js';
 import { createTypographyRouter } from './typography.js';
+import { createAdminPageHeadingsRouter } from './pageHeadings.js';
 
 /**
  * Aggregates every admin sub-router under /api/v1/admin.
@@ -51,6 +52,7 @@ export function createAdminRouter(db: Pool): express.Router {
   router.use('/youtube-videos', createAdminYoutubeVideosRouter(db));
   // GET is unguarded so the public site can read the font settings; PUT is admin-only.
   router.use('/typography', createTypographyRouter(db));
+  router.use('/page-headings', createAdminPageHeadingsRouter(db));
 
   return router;
 }

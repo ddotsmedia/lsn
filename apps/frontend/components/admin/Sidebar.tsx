@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: '/admin/chatbot', label: 'Chatbot', icon: '◍' },
   { href: '/admin/text-editor', label: 'Text Editor', icon: '✎' },
   { href: '/admin/pages', label: 'Pages', icon: '◻' },
+  { href: '/admin/page-headings', label: 'Page Headings', icon: '⌶' },
   { href: '/admin/media', label: 'Media Library', icon: '▨' },
   { href: '/admin/partners', label: 'Partners', icon: '◈' },
   { href: '/admin/testimonials', label: 'Testimonials', icon: '❝' },

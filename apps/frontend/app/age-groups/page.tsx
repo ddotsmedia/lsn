@@ -12,6 +12,7 @@ import { QuickFactsCard } from '@/components/QuickFactsCard';
 import { Butterfly, Flower } from '@/components/Decorations';
 import { useAgeGroupMedia, useAgeGroupIcons, usePageMedia, slugify } from '@/lib/media';
 import type { SiteImage } from '@/lib/media';
+import { usePageHeading } from '@/lib/pageHeadings';
 import { Modal } from '@/components/Modal';
 
 /* -------------------------------------------------------------------------- */
@@ -322,6 +323,8 @@ const DETAIL_SECTION_ID = 'age-group-detail';
 export default function AgeGroupsPage() {
   // Page-level images, separate from the per-age-group ones below.
   const pageImages = usePageMedia('age-groups');
+  // Editable in admin -> Page Headings; falls back to the previous hardcoded H1.
+  const heading = usePageHeading('age-groups', 'Our Age Groups');
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const detailRef = useRef<HTMLElement>(null);
@@ -403,7 +406,7 @@ export default function AgeGroupsPage() {
               id="hero-heading"
               className="text-3xl font-bold text-white drop-shadow-md md:text-4xl lg:text-5xl"
             >
-              Our Age Groups
+              {heading}
             </h1>
             <p className="mt-4 text-lg text-blue-50 drop-shadow md:text-xl">
               Programs tailored to each developmental stage

@@ -7,6 +7,7 @@ import { PageSections } from '@/components/PageSections';
 import { PageFeatureImages } from '@/components/PageFeatureImages';
 import { HeroBackground } from '@/components/HeroBackground';
 import { usePageMedia } from '@/lib/media';
+import { usePageHeading } from '@/lib/pageHeadings';
 import { Modal } from '@/components/Modal';
 import { Button } from '@/components/Button';
 import Link from 'next/link';
@@ -230,6 +231,8 @@ export default function EventsPage() {
   // Images uploaded in admin -> Media Library -> Pages -> News & Events. The
   // pages row is 'news-events', which is the slug page_media stores under.
   const pageImages = usePageMedia('news-events');
+  // Heading is keyed on the route ('events'), not the 'news-events' media slug.
+  const heading = usePageHeading('events', 'Events & Programs');
   const [upcoming, setUpcoming] = useState<ApiEvent[]>([]);
   const [news, setNews] = useState<ApiNews[]>([]);
   const [loading, setLoading] = useState(true);
@@ -276,7 +279,7 @@ export default function EventsPage() {
           <HeroBackground image={pageImages.hero} />
           <div className="relative z-10">
             <h1 id="events-hero" className="text-3xl font-bold text-white md:text-4xl lg:text-5xl">
-              Events &amp; Programs
+              {heading}
             </h1>
             <p className="mx-auto mt-3 max-w-xl text-base text-blue-50 md:text-lg">
               Join us for exciting learning experiences

@@ -12,6 +12,7 @@ import { Cloud, Flower } from '@/components/Decorations';
 import { HeroBackground } from '@/components/HeroBackground';
 import { PageFeatureImages } from '@/components/PageFeatureImages';
 import { usePageMedia } from '@/lib/media';
+import { usePageHeading } from '@/lib/pageHeadings';
 
 /* -------------------------------------------------------------------------- */
 /* Data                                                                        */
@@ -326,6 +327,8 @@ export default function FacilitiesPage() {
   // Slots set in admin → Pages → Facilities → Images. Absent until one is set,
   // in which case the hero keeps its gradient.
   const pageImages = usePageMedia('facilities');
+  // Editable in admin -> Page Headings; falls back to the previous hardcoded H1.
+  const heading = usePageHeading('facilities', 'Our State-of-the-Art Facilities');
   // Only the slots that have been filled, in order, so two images lay out as a
   // pair rather than leaving a gap where the third would be.
   const featureImages = ['feature_1', 'feature_2', 'feature_3']
@@ -387,7 +390,7 @@ export default function FacilitiesPage() {
               id="hero-heading"
               className="text-3xl font-bold text-white drop-shadow-md md:text-4xl lg:text-5xl"
             >
-              Our State-of-the-Art Facilities
+              {heading}
             </h1>
             <p className="mt-4 text-lg text-blue-50 drop-shadow md:text-xl">
               Where learning happens in a safe, nurturing environment

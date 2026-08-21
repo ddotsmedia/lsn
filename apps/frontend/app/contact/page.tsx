@@ -10,6 +10,7 @@ import { InfoCard } from '@/components/InfoCard';
 import { Butterfly, Flower } from '@/components/Decorations';
 import { HeroBackground } from '@/components/HeroBackground';
 import { usePageMedia } from '@/lib/media';
+import { usePageHeading } from '@/lib/pageHeadings';
 
 /* -------------------------------------------------------------------------- */
 /* Data                                                                        */
@@ -124,6 +125,8 @@ export default function ContactPage() {
   // Hero image uploaded via admin → Media Library → Pages. Absent until one is
   // set, in which case the hero keeps its gradient.
   const pageImages = usePageMedia('contact');
+  // Editable in admin -> Page Headings; falls back to the previous hardcoded H1.
+  const heading = usePageHeading('contact', 'Get in Touch');
   return (
     <>
       <Header />
@@ -145,7 +148,7 @@ export default function ContactPage() {
               id="hero-heading"
               className="text-3xl font-bold text-white drop-shadow-md md:text-4xl lg:text-5xl"
             >
-              Get in Touch
+              {heading}
             </h1>
             <p className="mt-4 text-lg text-orange-50 drop-shadow md:text-xl">
               We&rsquo;d love to hear from you
