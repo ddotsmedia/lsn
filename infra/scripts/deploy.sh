@@ -7,7 +7,7 @@
 #
 set -Eeuo pipefail
 
-DEPLOY_PATH="${DEPLOY_PATH:-/opt/websites/littlesmarties}"
+DEPLOY_PATH="${DEPLOY_PATH:-/opt/lsn}"
 ENV_FILE="${ENV_FILE:-/etc/littlesmarties/.env.prod}"
 COMPOSE_FILE="docker-compose.prod.yml"
 BRANCH="${BRANCH:-main}"
@@ -84,3 +84,4 @@ log "pruning dangling images"
 docker image prune -f --filter "label=com.docker.compose.project=littlesmarties" || true
 
 log "deploy complete — $(git rev-parse --short HEAD)"
+

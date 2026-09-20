@@ -85,7 +85,8 @@ jobs:
           script_stop: true
           # Scoped to the Little Smarties checkout only.
           script: |
-            cd ${{ secrets.DEPLOY_PATH || '/opt/websites/littlesmarties' }}
+            cd ${{ secrets.DEPLOY_PATH || '/opt/lsn' }}
             git fetch --prune origin main
             git reset --hard origin/main
             bash infra/scripts/deploy.sh
+
