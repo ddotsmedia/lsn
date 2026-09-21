@@ -261,8 +261,19 @@ export async function deleteEvent(db: Pool, req: AuthRequest, res: Response): Pr
 export async function getFacilities(db: Pool, _req: AuthRequest, res: Response): Promise<void> {
   try {
     // Soft-deleted facilities must not keep showing on the public page.
+    // If image_url is null, use the first facility_image (via media.url).
     const result = await db.query(
-      'SELECT * FROM facilities WHERE deleted_at IS NULL ORDER BY sort_order ASC, created_at DESC'
+      `SELECT f.id, f.name, f.description, f.location, f.detailed_description, f.icon,
+              f.meta_title, f.meta_description, f.sort_order, f.created_at, f.updated_at,
+              f.deleted_at,
+              COALESCE(f.image_url,
+                (SELECT m.url FROM facility_images fi
+                 JOIN media m ON fi.media_id = m.id
+                 WHERE fi.facility_id = f.id AND fi.deleted_at IS NULL AND m.deleted_at IS NULL
+                 ORDER BY fi.display_order ASC, fi.created_at ASC LIMIT 1)) AS image_url
+       FROM facilities f
+       WHERE f.deleted_at IS NULL
+       ORDER BY f.sort_order ASC, f.created_at DESC`
     );
     res.json(result.rows as Facility[]);
   } catch (error) {
