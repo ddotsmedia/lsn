@@ -3,6 +3,17 @@
 import React, { useEffect, useRef } from 'react';
 import { Modal } from './Modal';
 
+export interface FacilityImage {
+  facility_id?: number;
+  assignment_id?: string;
+  is_primary?: boolean;
+  display_order?: number;
+  media_id?: string;
+  url: string;
+  alt_text?: string;
+  title?: string;
+}
+
 export interface Facility {
   id: number;
   emoji: string;
@@ -11,7 +22,7 @@ export interface Facility {
   features: readonly string[];
   detailedDescription: string;
   amenities: readonly string[];
-  images?: readonly string[];
+  images?: readonly (string | FacilityImage)[];
 }
 
 export interface FacilityModalProps {
@@ -59,6 +70,13 @@ function ChevronIcon({ direction }: { direction: 'left' | 'right' }) {
 }
 
 /**
+ * Helper function to check if an image is a FacilityImage object
+ */
+function isFacilityImageObject(img: string | FacilityImage): img is FacilityImage {
+  return typeof img === 'object' && img !== null && 'url' in img;
+}
+
+/**
  * Detailed facility view built on the shared Modal.
  *
  * Previous/Next are offered twice by design: as viewport-fixed side buttons on
@@ -103,18 +121,40 @@ export function FacilityModal({
 
   const hasCounter = typeof currentIndex === 'number' && typeof total === 'number';
 
+  // Extract primary image from the images array
+  const primaryImage = facility.images?.find(
+    (img) => isFacilityImageObject(img) && img.is_primary
+  ) as FacilityImage | undefined;
+
+  // Filter out primary image from gallery (show only secondary images)
+  const galleryImages = facility.images?.filter(
+    (img) => !isFacilityImageObject(img) || !img.is_primary
+  ) as (string | FacilityImage)[] | undefined;
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={facility.name} size="lg">
-      {/* Lead image placeholder */}
-      <div
-        className="mb-6 flex aspect-3/2 w-full items-center justify-center rounded-lg bg-gradient-to-br from-blue-100 to-blue-200"
-        role="img"
-        aria-label={facility.name}
-      >
-        <span className="text-6xl md:text-7xl" aria-hidden="true">
-          {facility.emoji}
-        </span>
-      </div>
+      {/* Lead image — shows primary image if available, otherwise emoji placeholder */}
+      {primaryImage && primaryImage.url ? (
+        <div className="mb-6 w-full rounded-lg overflow-hidden" role="img" aria-label={facility.name}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={primaryImage.url}
+            alt={primaryImage.alt_text || facility.name}
+            title={primaryImage.title || facility.name}
+            className="aspect-3/2 w-full object-cover"
+          />
+        </div>
+      ) : (
+        <div
+          className="mb-6 flex aspect-3/2 w-full items-center justify-center rounded-lg bg-gradient-to-br from-blue-100 to-blue-200"
+          role="img"
+          aria-label={facility.name}
+        >
+          <span className="text-6xl md:text-7xl" aria-hidden="true">
+            {facility.emoji}
+          </span>
+        </div>
+      )}
 
       <p className="text-base leading-relaxed text-gray-700">{facility.detailedDescription}</p>
 
@@ -157,17 +197,23 @@ export function FacilityModal({
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {/* Real photographs once any have been uploaded for this facility in
               the admin panel; the tinted placeholders until then. */}
-          {facility.images && facility.images.length > 0
-            ? facility.images.map((src, index) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={src}
-                  src={src}
-                  alt={`${facility.name}, photo ${index + 1}`}
-                  loading="lazy"
-                  className="aspect-4/3 w-full rounded-lg object-cover"
-                />
-              ))
+          {galleryImages && galleryImages.length > 0
+            ? galleryImages.map((img, index) => {
+                const isObject = isFacilityImageObject(img);
+                const imgUrl = isObject ? img.url : img;
+                const imgAlt = isObject ? img.alt_text || `${facility.name}, photo ${index + 1}` : `${facility.name}, photo ${index + 1}`;
+                
+                return (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={imgUrl}
+                    src={imgUrl}
+                    alt={imgAlt}
+                    loading="lazy"
+                    className="aspect-4/3 w-full rounded-lg object-cover"
+                  />
+                );
+              })
             : GALLERY_GRADIENTS.map((gradient, index) => (
                 <div
                   key={gradient}
