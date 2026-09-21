@@ -83,9 +83,9 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           script_stop: true
-          # Scoped to the Little Smarties checkout only.
+          # Scoped to the LSN checkout only.
           script: |
-            cd ${{ secrets.DEPLOY_PATH || '/opt/websites/littlesmarties' }}
+            cd ${{ secrets.DEPLOY_PATH || '/opt/lsn' }}
             git fetch --prune origin main
             git reset --hard origin/main
             bash infra/scripts/deploy.sh
