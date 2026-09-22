@@ -13,19 +13,29 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const { refresh } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async () => {
+    if (!email || !password) {
+      setError('Email and password are required');
+      return;
+    }
+
     setError('');
     setLoading(true);
 
     try {
       await login(email, password);
       await refresh();
-      router.push('/admin/text-editor');
+      router.push('/admin/dashboard');
     } catch (err) {
       setError((err as Error).message || 'Login failed');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !loading) {
+      handleLogin();
     }
   };
 
@@ -47,8 +57,8 @@ export default function AdminLoginPage() {
           <p className="text-sm text-zinc-500 mt-1">Admin Panel</p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="bg-[#111119] rounded-2xl border border-zinc-800/50 p-8 space-y-5">
+        {/* Form Container */}
+        <div className="bg-[#111119] rounded-2xl border border-zinc-800/50 p-8 space-y-5">
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-400">
               {error}
@@ -61,10 +71,11 @@ export default function AdminLoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required
+              onKeyPress={handleKeyPress}
+              disabled={loading}
               autoFocus
-              className="w-full bg-[#0c0c14] border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-colors"
-              placeholder="admin@littlesmartiesnursery.com"
+              className="w-full bg-[#0c0c14] border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
+              placeholder="admin@bayrotna.ae"
             />
           </div>
 
@@ -74,20 +85,22 @@ export default function AdminLoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full bg-[#0c0c14] border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-colors"
+              onKeyPress={handleKeyPress}
+              disabled={loading}
+              className="w-full bg-[#0c0c14] border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
               placeholder="••••••••"
             />
           </div>
 
           <button
-            type="submit"
+            type="button"
+            onClick={handleLogin}
             disabled={loading}
             className="w-full py-3 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-medium text-sm hover:from-emerald-400 hover:to-teal-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
-        </form>
+        </div>
 
         <p className="text-center text-xs text-zinc-600 mt-6">
           Contact your administrator for access credentials
