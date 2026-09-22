@@ -63,7 +63,13 @@ for f in apps/backend/migrations/*.sql; do
     psql -v ON_ERROR_STOP=1 -U "${DB_USER:-lsn}" -d "${DB_NAME:-littlesmarties}" < "$f"
 done
 
-# --- 8. health checks -------------------------------------------------------
+# --- 8. seed admin user (idempotent) ----------------------------------------
+log "seeding admin user"
+docker compose -f "$COMPOSE_FILE" exec -T backend \
+  node dist/scripts/seed-admin.js 2>&1 | grep -E "^\[seed-admin\]" || true
+log "  admin user seeded"
+
+# --- 9. health checks -------------------------------------------------------
 log "health checks"
 for i in $(seq 1 30); do
   if curl -fsS http://127.0.0.1:3001/health >/dev/null; then break; fi
@@ -79,7 +85,7 @@ for i in $(seq 1 30); do
 done
 log "  frontend ok"
 
-# --- 9. prune images built by this project only -----------------------------
+# --- 10. prune images built by this project only ----------------------------
 log "pruning dangling images"
 docker image prune -f --filter "label=com.docker.compose.project=littlesmarties" || true
 
