@@ -44,9 +44,11 @@ export async function register(db: Pool, req: AuthRequest, res: Response): Promi
     );
 
     const user = result.rows[0] as User;
-    const accessToken = generateToken(user.id);
+    const accessToken = generateToken(user.id, { email: user.email, role: user.role });
     const refreshToken = generateRefreshToken(user.id);
 
+    // Delete old refresh tokens before creating a new one
+    await db.query('DELETE FROM refresh_tokens WHERE user_id = $1', [user.id]);
     await db.query(
       "INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL '7 days')",
       [user.id, refreshToken]
@@ -81,9 +83,11 @@ export async function login(db: Pool, req: AuthRequest, res: Response): Promise<
       return;
     }
 
-    const accessToken = generateToken(user.id);
+    const accessToken = generateToken(user.id, { email: user.email, role: user.role });
     const refreshToken = generateRefreshToken(user.id);
 
+    // Delete old refresh tokens before creating a new one
+    await db.query('DELETE FROM refresh_tokens WHERE user_id = $1', [user.id]);
     await db.query(
       "INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL '7 days')",
       [user.id, refreshToken]
@@ -129,7 +133,7 @@ export async function refresh(db: Pool, req: AuthRequest, res: Response): Promis
     }
 
     const user = result.rows[0] as User;
-    const accessToken = generateToken(user.id);
+    const accessToken = generateToken(user.id, { email: user.email, role: user.role });
     const newRefreshToken = generateRefreshToken(user.id);
 
     // Rotate: the presented token is single-use.
