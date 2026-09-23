@@ -3,12 +3,20 @@ import jwt, { type SignOptions } from 'jsonwebtoken';
 const SECRET = process.env.JWT_SECRET || 'dev-secret-key';
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret';
 
-export function generateToken(userId: string, expiresIn: SignOptions['expiresIn'] = '1h'): string {
-  return jwt.sign({ userId }, SECRET, { expiresIn });
+export function generateToken(
+  userId: string,
+  claims: { email?: string; role?: string } = {},
+  expiresIn: SignOptions['expiresIn'] = '1h'
+): string {
+  return jwt.sign(
+    { userId, email: claims.email, role: claims.role, type: 'access' },
+    SECRET,
+    { expiresIn }
+  );
 }
 
 export function generateRefreshToken(userId: string): string {
-  return jwt.sign({ userId }, REFRESH_SECRET, { expiresIn: '7d' });
+  return jwt.sign({ userId, type: 'refresh' }, REFRESH_SECRET, { expiresIn: '7d' });
 }
 
 /** Narrow an unknown verify() result down to a payload we can trust. */

@@ -1,0 +1,11 @@
+--- a/apps/backend/src/controllers/authController.ts
++++ b/apps/backend/src/controllers/authController.ts
+@@ -82,6 +82,8 @@ export async function login(db: Pool, req: AuthRequest, res: Response): Promise<
+     const accessToken = generateToken(user.id, { email: user.email, role: user.role });
+     const refreshToken = generateRefreshToken(user.id);
+ 
++    // Delete old refresh tokens before creating a new one
++    await db.query('DELETE FROM refresh_tokens WHERE user_id = $1', [user.id]);
+     await db.query(
+       "INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL '7 days')",
+       [user.id, refreshToken]

@@ -46,7 +46,9 @@
       "Bash(npm list *)",
       "PowerShell(tail *)",
       "PowerShell(ls *)",
-      "Bash(ssh-keyscan -t rsa lsn.ae)"
+      "Bash(ssh-keyscan -t rsa lsn.ae)",
+      "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")",
+      "PowerShell(pm2 restart *)"
     ]
   }
 }
