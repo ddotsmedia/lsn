@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-
-export const dynamic = 'force-dynamic';
+import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { login } from '../../../lib/api';
 import { useAuth } from '../../../lib/auth-context';
+
+export const dynamic = 'force-dynamic';
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('');
@@ -15,36 +15,25 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const { refresh } = useAuth();
 
-  const handleLogin = async () => {
-    console.log('Login button clicked');
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
     if (!email || !password) {
-      console.log('Missing email or password');
       setError('Email and password are required');
       return;
     }
 
     setError('');
     setLoading(true);
-    console.log('Starting login with:', email);
 
     try {
-      const result = await login(email, password);
-      console.log('Login successful:', result);
+      await login(email, password);
       await refresh();
-      console.log('Auth refreshed, redirecting...');
       router.push('/admin/dashboard');
     } catch (err) {
-      const msg = (err as Error).message || 'Login failed';
-      console.error('Login error:', msg, err);
-      setError(msg);
+      setError((err as Error).message || 'Login failed');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !loading) {
-      handleLogin();
     }
   };
 
@@ -74,41 +63,40 @@ export default function AdminLoginPage() {
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-zinc-400 uppercase tracking-wider">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyPress={handleKeyPress}
-              disabled={loading}
-              autoFocus
-              className="w-full bg-[#0c0c14] border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
-              placeholder="admin@bayrotna.ae"
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-zinc-400 uppercase tracking-wider">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+                autoFocus
+                className="w-full bg-[#0c0c14] border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
+                placeholder="admin@bayrotna.ae"
+              />
+            </div>
 
-          <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-zinc-400 uppercase tracking-wider">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyPress={handleKeyPress}
-              disabled={loading}
-              className="w-full bg-[#0c0c14] border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
-              placeholder="••••••••"
-            />
-          </div>
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-zinc-400 uppercase tracking-wider">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                className="w-full bg-[#0c0c14] border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
+                placeholder="••••••••"
+              />
+            </div>
 
-          <button
-            type="button"
-            onClick={handleLogin}
-            disabled={loading}
-            className="w-full py-3 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-medium text-sm hover:from-emerald-400 hover:to-teal-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-medium text-sm hover:from-emerald-400 hover:to-teal-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Signing in...' : 'Sign In'}
+            </button>
+          </form>
         </div>
 
         <p className="text-center text-xs text-zinc-600 mt-6">
