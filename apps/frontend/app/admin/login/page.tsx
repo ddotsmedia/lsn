@@ -101,7 +101,7 @@ export default function AdminLoginPage() {
 
           <button
             type="button"
-            onClick={handleLogin}
+            onClick={() => {console.log('TEST CLICK'); handleLogin();}}
             disabled={loading}
             className="w-full py-3 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-medium text-sm hover:from-emerald-400 hover:to-teal-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
