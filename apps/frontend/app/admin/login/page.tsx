@@ -2,104 +2,103 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { login } from '../../../lib/api';
-import { useAuth } from '../../../lib/auth-context';
 
 export const dynamic = 'force-dynamic';
 
-export default function AdminLoginPage() {
+export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { refresh } = useAuth();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    if (!email || !password) {
-      setError('Email and password are required');
-      return;
-    }
-
     setError('');
     setLoading(true);
 
     try {
-      await login(email, password);
-      await refresh();
-      router.push('/admin/dashboard');
+      const response = await fetch('/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Login failed');
+        setLoading(false);
+        return;
+      }
+
+      if (data.accessToken) {
+        localStorage.setItem('lsn_token', data.accessToken);
+        localStorage.setItem('lsn_refresh', data.refreshToken);
+        router.push('/admin/dashboard');
+      } else {
+        setError('No token received');
+        setLoading(false);
+      }
     } catch (err) {
       setError((err as Error).message || 'Login failed');
-    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4">
-      {/* Background effects */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-32 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-teal-500/5 rounded-full blur-3xl" />
-      </div>
-
-      <div className="relative w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 mb-4">
-            <span className="text-white font-bold text-xl">LS</span>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0a0a0f', padding: '16px' }}>
+      <div style={{ width: '100%', maxWidth: '400px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '16px', background: 'linear-gradient(135deg, #10b981 0%, #14b8a6 100%)', marginBottom: '16px' }}>
+            <span style={{ color: 'white', fontWeight: 'bold', fontSize: '20px' }}>LS</span>
           </div>
-          <h1 className="text-2xl font-bold text-zinc-100 tracking-tight">Little Smarties</h1>
-          <p className="text-sm text-zinc-500 mt-1">Admin Panel</p>
+          <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#f3f4f6', margin: '0 0 8px 0' }}>Little Smarties</h1>
+          <p style={{ fontSize: '14px', color: '#9ca3af', margin: '0' }}>Admin Panel</p>
         </div>
 
-        {/* Form Container */}
-        <div className="bg-[#111119] rounded-2xl border border-zinc-800/50 p-8 space-y-5">
+        <form onSubmit={handleSubmit} style={{ backgroundColor: '#111119', borderRadius: '16px', border: '1px solid rgba(161, 140, 200, 0.3)', padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-400">
+            <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', padding: '12px 16px', fontSize: '14px', color: '#f87171' }}>
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-zinc-400 uppercase tracking-wider">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-                autoFocus
-                className="w-full bg-[#0c0c14] border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
-                placeholder="admin@bayrotna.ae"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-zinc-400 uppercase tracking-wider">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                className="w-full bg-[#0c0c14] border border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
-                placeholder="••••••••"
-              />
-            </div>
-
-            <button
-              type="submit"
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '12px', fontWeight: '500', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
-              className="w-full py-3 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-medium text-sm hover:from-emerald-400 hover:to-teal-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Signing in...' : 'Sign In'}
-            </button>
-          </form>
-        </div>
+              autoFocus
+              placeholder="admin@bayrotna.ae"
+              style={{ width: '100%', backgroundColor: '#0c0c14', border: '1px solid #27272e', borderRadius: '8px', padding: '12px 16px', fontSize: '14px', color: '#e4e4e7', opacity: loading ? 0.5 : 1 }}
+            />
+          </div>
 
-        <p className="text-center text-xs text-zinc-600 mt-6">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '12px', fontWeight: '500', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+              placeholder="••••••••"
+              style={{ width: '100%', backgroundColor: '#0c0c14', border: '1px solid #27272e', borderRadius: '8px', padding: '12px 16px', fontSize: '14px', color: '#e4e4e7', opacity: loading ? 0.5 : 1 }}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{ width: '100%', padding: '12px', borderRadius: '8px', background: 'linear-gradient(90deg, #10b981 0%, #14b8a6 100%)', color: 'white', fontWeight: '500', fontSize: '14px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1 }}
+          >
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
+        </form>
+
+        <p style={{ textAlign: 'center', fontSize: '12px', color: '#6b7280', marginTop: '24px' }}>
           Contact your administrator for access credentials
         </p>
       </div>
