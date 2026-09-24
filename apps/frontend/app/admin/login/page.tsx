@@ -14,20 +14,27 @@ export default function AdminLoginPage() {
   const { refresh } = useAuth();
 
   const handleLogin = async () => {
+    console.log('Login button clicked');
     if (!email || !password) {
+      console.log('Missing email or password');
       setError('Email and password are required');
       return;
     }
 
     setError('');
     setLoading(true);
+    console.log('Starting login with:', email);
 
     try {
-      await login(email, password);
+      const result = await login(email, password);
+      console.log('Login successful:', result);
       await refresh();
+      console.log('Auth refreshed, redirecting...');
       router.push('/admin/dashboard');
     } catch (err) {
-      setError((err as Error).message || 'Login failed');
+      const msg = (err as Error).message || 'Login failed';
+      console.error('Login error:', msg, err);
+      setError(msg);
     } finally {
       setLoading(false);
     }
