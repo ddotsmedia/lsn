@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-export const dynamic = 'force-dynamic';
+import { login } from '../../../lib/api';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -12,34 +11,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const response = await fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'Login failed');
-        setLoading(false);
-        return;
-      }
-
-      if (data.accessToken) {
-        localStorage.setItem('lsn_token', data.accessToken);
-        localStorage.setItem('lsn_refresh', data.refreshToken);
-        router.push('/admin/dashboard');
-      } else {
-        setError('No token received');
-        setLoading(false);
-      }
+      await login(email, password);
+      router.push('/admin/dashboard');
     } catch (err) {
       setError((err as Error).message || 'Login failed');
       setLoading(false);
@@ -57,7 +36,7 @@ export default function LoginPage() {
           <p style={{ fontSize: '14px', color: '#9ca3af', margin: '0' }}>Admin Panel</p>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ backgroundColor: '#111119', borderRadius: '16px', border: '1px solid rgba(161, 140, 200, 0.3)', padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <form onSubmit={handleLogin} style={{ backgroundColor: '#111119', borderRadius: '16px', border: '1px solid rgba(161, 140, 200, 0.3)', padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {error && (
             <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', padding: '12px 16px', fontSize: '14px', color: '#f87171' }}>
               {error}
@@ -70,9 +49,9 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              disabled={loading}
               autoFocus
               placeholder="admin@bayrotna.ae"
+              disabled={loading}
               style={{ width: '100%', backgroundColor: '#0c0c14', border: '1px solid #27272e', borderRadius: '8px', padding: '12px 16px', fontSize: '14px', color: '#e4e4e7', opacity: loading ? 0.5 : 1 }}
             />
           </div>
@@ -83,8 +62,8 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
               placeholder="••••••••"
+              disabled={loading}
               style={{ width: '100%', backgroundColor: '#0c0c14', border: '1px solid #27272e', borderRadius: '8px', padding: '12px 16px', fontSize: '14px', color: '#e4e4e7', opacity: loading ? 0.5 : 1 }}
             />
           </div>
