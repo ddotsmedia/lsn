@@ -266,10 +266,10 @@ export function setupApiClient(): void {
   // Handle 401 Unauthorized responses
   apiClient.addErrorInterceptor((error) => {
     if (error instanceof ApiResponseError && error.status === HttpStatusCode.UNAUTHORIZED) {
-      // Clear auth token
+      // Clear auth tokens
       if (typeof window !== 'undefined') {
         localStorage.removeItem('lsn_token');
-        localStorage.removeItem('lsn_refresh_token');
+        localStorage.removeItem('lsn_refresh');
       }
       // Redirect to login if in browser
       if (typeof window !== 'undefined') {

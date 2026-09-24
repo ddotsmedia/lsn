@@ -40,7 +40,7 @@ export function useDashboardStats(fresh = false) {
         url.searchParams.set('fresh', 'true');
       }
 
-      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+      const token = typeof window !== 'undefined' ? localStorage.getItem('lsn_token') : null;
 
       const response = await fetch(url.toString(), {
         headers: {

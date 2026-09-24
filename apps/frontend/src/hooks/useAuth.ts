@@ -2,55 +2,42 @@
 
 import { useEffect, useState } from 'react';
 
-interface User {
-  id: string;
-  email: string;
-  name: string;
-}
+// Note: This is a simplified auth check hook
+// For full user data and auth context, use useAuth from lib/auth-context
+// This hook specifically checks for token presence in localStorage
 
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Check if user is authenticated by looking for token
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-    const storedUser = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    // Using 'lsn_token' key as per backend API expectations
+    const token = typeof window !== 'undefined' ? localStorage.getItem('lsn_token') : null;
 
-    if (token && storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        setIsAuthenticated(true);
-      } catch {
-        setIsAuthenticated(false);
-      }
+    if (token) {
+      setIsAuthenticated(true);
     }
 
     setLoading(false);
   }, []);
 
-  const login = (userData: User, token: string) => {
+  const login = (token: string) => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('accessToken', token);
-      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('lsn_token', token);
     }
-    setUser(userData);
     setIsAuthenticated(true);
   };
 
   const logout = () => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('user');
+      localStorage.removeItem('lsn_token');
+      localStorage.removeItem('lsn_refresh');
     }
-    setUser(null);
     setIsAuthenticated(false);
   };
 
   return {
-    user,
     isAuthenticated,
     loading,
     login,

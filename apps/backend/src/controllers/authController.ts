@@ -94,9 +94,13 @@ export async function login(db: Pool, req: AuthRequest, res: Response): Promise<
     );
 
     const response: TokenResponse = { accessToken, refreshToken, user };
+    console.log('Login successful for:', email);
+    console.log('Response keys:', Object.keys(response));
+    console.log('AccessToken exists:', !!accessToken);
     res.json({ ...response, user: toPublicUser(user) });
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error('Login validation error:', error.issues);
       res.status(400).json({ error: 'Validation failed', details: error.issues });
     } else {
       console.error('login failed', error);
