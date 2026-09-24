@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '../../../lib/api';
 import { StatCard, StatusBadge } from '../../../components/admin/shared';
 
@@ -60,9 +61,21 @@ function TopPagesChart({ pages }: { pages: Array<{ path: string; count: number }
 }
 
 export default function DashboardPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = searchParams.get('token');
+    const refresh = searchParams.get('refresh');
+    if (token && refresh) {
+      localStorage.setItem('lsn_token', token);
+      localStorage.setItem('lsn_refresh', refresh);
+      router.replace('/admin/dashboard');
+    }
+  }, [searchParams, router]);
 
   useEffect(() => {
     api<DashboardData>('/admin/dashboard/stats')

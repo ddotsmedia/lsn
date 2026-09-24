@@ -1,28 +1,26 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { login } from '../../../lib/api';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
-    try {
-      await login(email, password);
-      router.push('/admin/dashboard');
-    } catch (err) {
-      setError((err as Error).message || 'Login failed');
-      setLoading(false);
+    if (!email || !password) {
+      setError('Email and password are required');
+      return;
     }
+
+    setLoading(true);
+    const encodedEmail = encodeURIComponent(email);
+    const encodedPassword = encodeURIComponent(password);
+    window.location.href = `/api/admin/login?email=${encodedEmail}&password=${encodedPassword}`;
   };
 
   return (
