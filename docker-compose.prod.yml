@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     volumes:
-      - postgres_prod:/var/lib/postgresql/data
+      - lsn_pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
@@ -27,7 +27,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      PORT: 3001
+      PORT: 3011
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
       JWT_SECRET: ${JWT_SECRET}
       SENDGRID_API_KEY: ${SENDGRID_API_KEY}
@@ -35,9 +35,9 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET}
     expose:
-      - "3001"
+      - "3011"
     ports:
-      - "127.0.0.1:3001:3001"
+      - "127.0.0.1:3011:3011"
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,12 +55,12 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      PORT: 3000
+      PORT: 3083
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     expose:
-      - "3000"
+      - "3083"
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3083:3083"
     depends_on:
       - backend
     networks:
@@ -68,7 +68,9 @@ services:
       - shared-network
 
 volumes:
-  postgres_prod:
+  lsn_pgdata:
+    external: true
+    name: lsn_pgdata
 
 networks:
   lsn-internal:

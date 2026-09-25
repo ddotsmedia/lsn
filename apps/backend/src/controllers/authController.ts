@@ -99,6 +99,7 @@ export async function login(db: Pool, req: AuthRequest, res: Response): Promise<
     const accessToken = generateToken(user.id);
     const refreshToken = generateRefreshToken(user.id);
 
+    await db.query('DELETE FROM refresh_tokens WHERE user_id = $1', [user.id]);
     await db.query(
       "INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL '7 days')",
       [user.id, refreshToken]
