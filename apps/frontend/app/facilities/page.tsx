@@ -27,7 +27,7 @@ interface ApiFacility {
   icon: string | null;
   features?: string[];
   amenities?: string[];
-  images?: { url: string }[];
+  images?: { url: string; alt_text?: string; is_primary?: boolean; media_id?: string; title?: string }[];
 }
 
 /**
