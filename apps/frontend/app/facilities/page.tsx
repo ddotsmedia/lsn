@@ -47,7 +47,7 @@ function toFacility(row: ApiFacility, index: number): Facility {
     features: row.features ?? [],
     detailedDescription: row.detailed_description ?? row.description ?? '',
     amenities: row.amenities ?? [],
-    images: (row.images ?? []).map((i) => i.url),
+    images: row.images ?? [],
   };
 }
 
