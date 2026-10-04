@@ -28,6 +28,7 @@ pnpm-debug.log*
 uploads/
 tmp/
 coverage/
+**/public/images-optimized/
 
 # editors & os
 .vscode/
