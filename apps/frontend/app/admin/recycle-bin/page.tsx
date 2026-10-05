@@ -83,6 +83,34 @@ export default function RecycleBinPage() {
     }
   };
 
+  const permanentDelete = async (path: string, id: string, label: string): Promise<void> => {
+    if (!confirm(`Permanently delete this ${label.toLowerCase()}? This cannot be undone.`)) return;
+    setBusy(id);
+    try {
+      await api(path, { method: 'DELETE' });
+      setToast({ message: `${label} permanently deleted`, type: 'success' });
+      await load();
+    } catch {
+      setToast({ message: `Could not permanently delete ${label.toLowerCase()}`, type: 'error' });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const emptyRecycleBin = async (): Promise<void> => {
+    if (!confirm('Permanently delete ALL deleted images? This cannot be undone.')) return;
+    setBusy('clear');
+    try {
+      await api('/admin/gallery/recycle-bin/clear', { method: 'DELETE' });
+      setToast({ message: 'Recycle bin emptied', type: 'success' });
+      await load();
+    } catch {
+      setToast({ message: 'Could not empty recycle bin', type: 'error' });
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const counts: Record<Tab, number> = {
     images: images.length,
     categories: categories.length,
@@ -104,23 +132,35 @@ export default function RecycleBinPage() {
         </p>
       </div>
 
-      <div role="tablist" aria-label="Deleted item type" className="mb-5 flex flex-wrap gap-2">
-        {TABS.map((t) => (
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div role="tablist" aria-label="Deleted item type" className="flex flex-wrap gap-2">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
+              onClick={() => setTab(t.key)}
+              className={`min-h-11 rounded-lg px-4 text-sm font-medium transition-colors ${
+                tab === t.key
+                  ? 'bg-emerald-500/15 text-emerald-400'
+                  : 'bg-zinc-800/50 text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              {t.label} ({counts[t.key]})
+            </button>
+          ))}
+        </div>
+        {tab === 'images' && images.length > 0 && (
           <button
-            key={t.key}
             type="button"
-            role="tab"
-            aria-selected={tab === t.key}
-            onClick={() => setTab(t.key)}
-            className={`min-h-11 rounded-lg px-4 text-sm font-medium transition-colors ${
-              tab === t.key
-                ? 'bg-emerald-500/15 text-emerald-400'
-                : 'bg-zinc-800/50 text-zinc-400 hover:text-zinc-200'
-            }`}
+            disabled={busy === 'clear'}
+            onClick={() => void emptyRecycleBin()}
+            className="min-h-11 rounded-lg bg-red-600/20 px-4 text-sm font-medium text-red-400 transition-colors hover:bg-red-600/30 disabled:opacity-50"
           >
-            {t.label} ({counts[t.key]})
+            {busy === 'clear' ? 'Clearing…' : 'Empty Recycle Bin'}
           </button>
-        ))}
+        )}
       </div>
 
       {loading ? (
@@ -147,14 +187,24 @@ export default function RecycleBinPage() {
                 <p className="truncate text-sm font-medium text-zinc-200">{img.title}</p>
                 <p className="text-xs text-zinc-500">{img.category_name || 'Uncategorised'}</p>
                 <p className="mt-1 text-[11px] text-zinc-600">Deleted {when(img.deleted_at)}</p>
-                <button
-                  type="button"
-                  disabled={busy === img.id}
-                  onClick={() => void restore(`/admin/gallery/images/${img.id}/restore`, img.id, 'Image')}
-                  className="mt-3 min-h-11 w-full rounded-lg bg-emerald-600 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
-                >
-                  {busy === img.id ? 'Restoring…' : 'Restore'}
-                </button>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    disabled={busy === img.id}
+                    onClick={() => void restore(`/admin/gallery/images/${img.id}/restore`, img.id, 'Image')}
+                    className="flex-1 min-h-11 rounded-lg bg-emerald-600 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
+                  >
+                    {busy === img.id ? 'Restoring…' : 'Restore'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy === img.id}
+                    onClick={() => void permanentDelete(`/admin/gallery/images/${img.id}/permanent`, img.id, 'Image')}
+                    className="flex-1 min-h-11 rounded-lg bg-red-600/20 text-sm font-medium text-red-400 transition-colors hover:bg-red-600/30 disabled:opacity-50"
+                  >
+                    {busy === img.id ? 'Deleting…' : 'Delete'}
+                  </button>
+                </div>
               </div>
             </li>
           ))}

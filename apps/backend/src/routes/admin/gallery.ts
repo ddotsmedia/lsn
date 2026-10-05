@@ -228,6 +228,40 @@ async function restoreImage(db: Pool, req: AuthRequest, res: Response): Promise<
   }
 }
 
+async function permanentDeleteImage(db: Pool, req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const result = await db.query(
+      `DELETE FROM gallery_images WHERE id = $1 AND deleted_at IS NOT NULL RETURNING *`,
+      [id]
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'No deleted image with that id' });
+      return;
+    }
+    await logActivity(db, req.user?.userId, 'permanent_delete', 'gallery_image', id, {
+      image: result.rows[0] as Record<string, unknown>,
+    });
+    res.status(204).send();
+  } catch (error) {
+    console.error('permanentDeleteImage failed', error);
+    res.status(500).json({ error: 'Failed to permanently delete image' });
+  }
+}
+
+async function clearRecycleBin(db: Pool, req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const result = await db.query('DELETE FROM gallery_images WHERE deleted_at IS NOT NULL');
+    await logActivity(db, req.user?.userId, 'empty_recycle_bin', 'gallery_image', null, {
+      count: result.rowCount,
+    });
+    res.json({ deleted: result.rowCount });
+  } catch (error) {
+    console.error('clearRecycleBin failed', error);
+    res.status(500).json({ error: 'Failed to clear recycle bin' });
+  }
+}
+
 async function reorderCategories(db: Pool, req: AuthRequest, res: Response): Promise<void> {
   try {
     const { ids } = ReorderSchema.parse(req.body);
@@ -472,6 +506,8 @@ export function createAdminGalleryRouter(db: Pool): express.Router {
   router.put('/images/:id', (req, res) => updateImage(db, req as AuthRequest, res));
   router.delete('/images/:id', (req, res) => deleteImage(db, req as AuthRequest, res));
   router.post('/images/:id/restore', (req, res) => restoreImage(db, req as AuthRequest, res));
+  router.delete('/images/:id/permanent', (req, res) => permanentDeleteImage(db, req as AuthRequest, res));
+  router.delete('/recycle-bin/clear', (req, res) => clearRecycleBin(db, req as AuthRequest, res));
   router.post('/images/reorder', (req, res) => reorderImages(db, req as AuthRequest, res));
   router.post('/images/bulk', upload.array('images', 20), (req, res) => bulkUpload(db, req as AuthRequest, res));
 
