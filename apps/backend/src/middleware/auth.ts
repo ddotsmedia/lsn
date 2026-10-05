@@ -12,7 +12,7 @@ export interface AuthRequest extends Request {
   token?: string
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key'
 
 /**
  * Middleware to verify JWT token and extract user info
@@ -81,7 +81,7 @@ export const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction
     return res.status(401).json({ error: 'Not authenticated' })
   }
 
-  if (req.user.role !== 'ADMIN') {
+  if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Admin access required' })
   }
 
@@ -164,7 +164,7 @@ export const createResolveAdmin = (db: Pool) => {
         [req.user.userId]
       );
 
-      if (result.rows[0]?.role !== 'ADMIN') {
+      if (result.rows[0]?.role !== 'admin') {
         return res.status(403).json({ error: 'Forbidden' });
       }
 

@@ -1,6 +1,7 @@
 import express from 'express';
 import type { Pool } from 'pg';
 import type { Request, Response } from 'express';
+import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js';
 
 export const createPagesRouter = (db: Pool) => {
   const router = express.Router();
@@ -48,8 +49,8 @@ export const createPagesRouter = (db: Pool) => {
     }
   });
 
-  // Update page metadata
-  router.put('/pages/:pageSlug', async (req: Request, res: Response) => {
+  // Update page metadata (admin only)
+  router.put('/pages/:pageSlug', authenticate, requireAdmin, async (req: Request, res: Response) => {
     try {
       const { pageSlug } = req.params;
       const { title, description } = req.body;
@@ -70,8 +71,8 @@ export const createPagesRouter = (db: Pool) => {
     }
   });
 
-  // Update section
-  router.put('/pages/:pageSlug/sections/:sectionKey', async (req: Request, res: Response) => {
+  // Update section (admin only)
+  router.put('/pages/:pageSlug/sections/:sectionKey', authenticate, requireAdmin, async (req: Request, res: Response) => {
     try {
       const { pageSlug, sectionKey } = req.params;
       const { section_title, content_text, image_url } = req.body;
@@ -101,8 +102,8 @@ export const createPagesRouter = (db: Pool) => {
     }
   });
 
-  // Create new section
-  router.post('/pages/:pageSlug/sections', async (req: Request, res: Response) => {
+  // Create new section (admin only)
+  router.post('/pages/:pageSlug/sections', authenticate, requireAdmin, async (req: Request, res: Response) => {
     try {
       const { pageSlug } = req.params;
       const { section_key, section_title, content_text, image_url } = req.body;

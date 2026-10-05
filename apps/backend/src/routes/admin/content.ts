@@ -454,7 +454,7 @@ async function updateAgeGroup(db: Pool, req: AuthRequest, res: Response): Promis
 
     params.push(id);
     const result = await db.query(
-      `UPDATE age_groups SET ${sets.join(', ')} WHERE id = ${idx} AND deleted_at IS NULL RETURNING *`,
+      `UPDATE age_groups SET ${sets.join(', ')} WHERE id = $${idx} AND deleted_at IS NULL RETURNING *`,
       params
     );
     if (result.rows.length === 0) { res.status(404).json({ error: 'Age group not found' }); return; }

@@ -254,14 +254,7 @@ export default function LoginPage() {
             )}
           </div>
 
-          {/* Footer */}
-          <div className="px-6 sm:px-8 py-4 sm:py-6 border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50">
-            <p className="text-center text-gray-600 dark:text-gray-400 text-xs sm:text-sm">
-              Demo Credentials:<br />
-              Email: <span className="font-mono text-gray-900 dark:text-gray-200">admin@lsn.ae</span><br />
-              Password: <span className="font-mono text-gray-900 dark:text-gray-200">AdminSecret123!</span>
-            </p>
-          </div>
+
         </div>
 
         {/* Footer info */}

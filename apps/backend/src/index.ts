@@ -1,4 +1,6 @@
+import 'express-async-errors';
 import express from 'express';
+import path from 'path';
 import cors from 'cors';
 import { Pool } from 'pg';
 import { cloudinary } from './config/cloudinary.js';
@@ -40,14 +42,22 @@ app.use(cors({
     'http://localhost:3010',
     'http://127.0.0.1:3010',
     'http://187.127.185.239:3000',
-    'http://187.127.185.239:3001'
+    'http://187.127.185.239:3001',
+    'https://lsn.ae',
+    'https://www.lsn.ae',
+    'https://bayrotna.ae',
+    'https://www.bayrotna.ae',
+    'https://admin.lsn.ae',
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+
+// Serve uploaded gallery images
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'backend' });
@@ -72,6 +82,17 @@ app.use('/api/v1', createPagesRouter(db));
 app.use('/api/v1', createPublicContentRouter(db));
 app.use('/api/v1/admin', createAdminRouter(db));
 app.use('/api/v1', createPageContentRouter(db));
+
+// 404 handler for undefined routes
+app.use((_req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+// Global error handler — must be last middleware (4-arg signature)
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('Unhandled error:', err);
+  res.status(err.status || 500).json({ error: 'Internal server error' });
+});
 
 app.listen(PORT, () => {
   console.log(`Backend running on port ${PORT}`);

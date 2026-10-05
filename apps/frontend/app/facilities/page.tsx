@@ -358,13 +358,13 @@ export default function FacilitiesPage() {
     setSelectedIndex((current) =>
       current === null ? null : (current - 1 + facilities.length) % facilities.length,
     );
-  }, []);
+  }, [facilities.length]);
 
   const goToNext = useCallback(() => {
     setSelectedIndex((current) =>
       current === null ? null : (current + 1) % facilities.length,
     );
-  }, []);
+  }, [facilities.length]);
 
   const selectedFacility = selectedIndex === null ? null : (facilities[selectedIndex] ?? null);
 

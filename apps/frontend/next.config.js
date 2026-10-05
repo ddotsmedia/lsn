@@ -1,14 +1,8 @@
 /** @type {import('next').NextConfig} */
-const path = require("path");
-
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
 
-  // Disable font optimization to avoid webpack errors with Google Fonts
-  optimizeFonts: false,
-  
-  // Preload less aggressively to avoid network issues
   experimental: {
     optimizePackageImports: ["@radix-ui", "lucide-react"],
   },
@@ -24,11 +18,20 @@ const nextConfig = {
     };
   },
 
+  async redirects() {
+    return [{ source: '/about', destination: '/nursery', permanent: true }];
+  },
+
   images: {
+    formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**',
+        hostname: 'res.cloudinary.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'img.youtube.com',
       },
       {
         protocol: 'http',
