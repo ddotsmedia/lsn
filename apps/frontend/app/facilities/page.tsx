@@ -44,10 +44,10 @@ function toFacility(row: ApiFacility, index: number): Facility {
     emoji: isEmoji ? icon : '🏫',
     name: row.name,
     description: row.description ?? '',
-    features: row.features ?? [],
+    features: Array.isArray(row.features) ? row.features : [],
     detailedDescription: row.detailed_description ?? row.description ?? '',
-    amenities: row.amenities ?? [],
-    images: row.images ?? [],
+    amenities: Array.isArray(row.amenities) ? row.amenities : [],
+    images: (row.images as any) ?? [],
   };
 }
 
@@ -448,16 +448,19 @@ export default function FacilitiesPage() {
                       : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
                 }`}
               >
-                {featureImages.map((image) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={image.id}
-                    src={image.url}
-                    alt={image.alt_text || ''}
-                    loading="lazy"
-                    className="aspect-4/3 w-full rounded-lg object-cover shadow-md"
-                  />
-                ))}
+                {featureImages.map((image) => {
+                  const imgUrl = typeof image === 'string' ? image : image?.url || '';
+                  return (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={image.id || imgUrl}
+                      src={imgUrl}
+                      alt={(typeof image === 'string' ? '' : image?.alt_text) || ''}
+                      loading="lazy"
+                      className="aspect-4/3 w-full rounded-lg object-cover shadow-md"
+                    />
+                  );
+                })}
               </div>
             </div>
           </section>
@@ -488,6 +491,7 @@ export default function FacilitiesPage() {
                   description={facility.description}
                   features={facility.features}
                   onClick={() => setSelectedIndex(index)}
+                  images={facility.images}
                 />
               ))}
             </div>
@@ -531,8 +535,8 @@ export default function FacilitiesPage() {
             {pageImages.feature_1 ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={pageImages.feature_1.url}
-                alt={pageImages.feature_1.alt_text || 'Outdoor play areas'}
+                src={typeof pageImages.feature_1 === 'string' ? pageImages.feature_1 : pageImages.feature_1?.url || ''}
+                alt={(typeof pageImages.feature_1 === 'string' ? '' : pageImages.feature_1?.alt_text) || 'Outdoor play areas'}
                 loading="lazy"
                 className="aspect-3/2 w-full rounded-lg object-cover shadow-md"
               />
@@ -587,8 +591,8 @@ export default function FacilitiesPage() {
               {pageImages.feature_2 ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={pageImages.feature_2.url}
-                  alt={pageImages.feature_2.alt_text || 'Technology-enhanced learning'}
+                  src={typeof pageImages.feature_2 === 'string' ? pageImages.feature_2 : pageImages.feature_2?.url || ''}
+                  alt={(typeof pageImages.feature_2 === 'string' ? '' : pageImages.feature_2?.alt_text) || 'Technology-enhanced learning'}
                   loading="lazy"
                   className="aspect-3/2 w-full rounded-lg object-cover shadow-md"
                 />
