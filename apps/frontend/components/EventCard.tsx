@@ -22,6 +22,8 @@ export interface EventItem {
   isPast?: boolean;
   /** Tailwind gradient for the placeholder image. */
   gradient: string;
+  /** Optional poster image URL from Cloudinary or uploads. */
+  image_url?: string | null;
 }
 
 export interface EventCardProps {

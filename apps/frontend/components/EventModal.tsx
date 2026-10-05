@@ -36,18 +36,30 @@ export function EventModal({ isOpen, onClose, event }: EventModalProps) {
         </div>
       </div>
 
-      {/* Placeholder image */}
-      <div
-        className={`mt-6 flex aspect-5/3 w-full items-center justify-center rounded-lg bg-gradient-to-br ${event.gradient} ${
-          isPast ? 'grayscale' : ''
-        }`}
-        role="img"
-        aria-label={event.title}
-      >
-        <span className="text-6xl md:text-7xl" aria-hidden="true">
-          {event.emoji}
-        </span>
-      </div>
+      {/* Event image or placeholder */}
+      {event.image_url ? (
+        <div className={`mt-6 rounded-lg bg-gray-100 ${isPast ? 'grayscale' : ''}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={event.image_url}
+            alt={event.title}
+            className="w-full object-contain"
+            style={{ maxHeight: '500px' }}
+          />
+        </div>
+      ) : (
+        <div
+          className={`mt-6 flex aspect-5/3 w-full items-center justify-center rounded-lg bg-gradient-to-br ${event.gradient} ${
+            isPast ? 'grayscale' : ''
+          }`}
+          role="img"
+          aria-label={event.title}
+        >
+          <span className="text-6xl md:text-7xl" aria-hidden="true">
+            {event.emoji}
+          </span>
+        </div>
+      )}
 
       <dl className="mt-6 space-y-3">
         <div className="flex items-start gap-2">
