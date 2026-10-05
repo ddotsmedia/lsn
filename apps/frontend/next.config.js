@@ -5,6 +5,14 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
 
+  // Disable font optimization to avoid webpack errors with Google Fonts
+  optimizeFonts: false,
+  
+  // Preload less aggressively to avoid network issues
+  experimental: {
+    optimizePackageImports: ["@radix-ui", "lucide-react"],
+  },
+
   async rewrites() {
     return {
       beforeFiles: [
@@ -33,4 +41,5 @@ const nextConfig = {
     ],
   },
 };
+
 module.exports = nextConfig;
