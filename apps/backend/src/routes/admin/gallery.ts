@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { authenticate, createResolveAdmin, requireAdmin } from '../../middleware/auth.js';
 import type { AuthRequest } from '../../middleware/auth.js';
 import { logActivity } from '../../utils/activityLog.js';
+import { convertToWebP, getWebpFileName } from '../../utils/imageOptimizer.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -343,7 +344,12 @@ async function uploadImage(db: Pool, req: AuthRequest, res: Response): Promise<v
     }
 
     const data = ImageSchema.parse(req.body);
-    const imageUrl = `/uploads/gallery/${req.file.filename}`;
+    const filePath = path.join(UPLOAD_DIR, req.file.filename);
+
+    // Convert to WebP and get new path
+    const webpPath = await convertToWebP(filePath);
+    const webpFileName = path.basename(webpPath);
+    const imageUrl = `/uploads/gallery/${webpFileName}`;
 
     const result = await db.query(
       `INSERT INTO gallery_images (category_id, image_url, title, description)
@@ -353,7 +359,7 @@ async function uploadImage(db: Pool, req: AuthRequest, res: Response): Promise<v
 
     await logActivity(db, req.user?.userId, 'upload', 'gallery_image', result.rows[0]?.id as string, {
       title: data.title,
-      filename: req.file.filename,
+      filename: webpFileName,
     });
 
     res.status(201).json(result.rows[0]);
@@ -463,7 +469,10 @@ async function bulkUpload(db: Pool, req: AuthRequest, res: Response): Promise<vo
 
     const results = [];
     for (const file of files) {
-      const imageUrl = `/uploads/gallery/${file.filename}`;
+      const filePath = path.join(UPLOAD_DIR, file.filename);
+      const webpPath = await convertToWebP(filePath);
+      const webpFileName = path.basename(webpPath);
+      const imageUrl = `/uploads/gallery/${webpFileName}`;
       const title = path.parse(file.originalname).name;
       const result = await db.query(
         `INSERT INTO gallery_images (category_id, image_url, title)

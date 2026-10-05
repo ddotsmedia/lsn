@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "convert-webp": "node scripts/convert-webp.js"
+    "convert-webp": "node scripts/convert-webp.js",
+    "migrate-webp-urls": "node scripts/migrate-urls-to-webp.js"
   },
   "dependencies": {
     "@prisma/client": "^5.8.0",
